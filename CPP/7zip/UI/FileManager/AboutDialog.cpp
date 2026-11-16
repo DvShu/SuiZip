@@ -1,4 +1,5 @@
 // AboutDialog.cpp
+// Modified 2026-11-16 for the fork: show its name and version in About.
 
 #include "StdAfx.h"
 
@@ -13,13 +14,6 @@
 
 #include "HelpUtils.h"
 #include "LangUtils.h"
-
-#ifdef Z7_LANG
-static const UInt32 kLangIDs[] =
-{
-  IDT_ABOUT_INFO
-};
-#endif
 
 #define kHomePageURL TEXT("https://www.7-zip.org/")
 #define kHelpTopic "start.htm"
@@ -37,16 +31,23 @@ bool CAboutDialog::OnInit()
     UString s;
     g_CodecsObj->GetCodecsErrorMessage(s);
     if (!s.IsEmpty())
-      MessageBoxW(GetParent(), s, L"7-Zip", MB_ICONERROR);
+      MessageBoxW(GetParent(), s, LLL(MY_PRODUCT_NAME), MB_ICONERROR);
   }
   #endif
 
+  UString title;
   #ifdef Z7_LANG
-  LangSetWindowText(*this, IDD_ABOUT);
-  LangSetDlgItems(*this, kLangIDs, Z7_ARRAY_SIZE(kLangIDs));
+  LangString_OnlyFromLangFile(IDD_ABOUT, title);
+  LangSetDlgItems(*this, NULL, 0);
   #endif
-  SetItemText(IDT_ABOUT_VERSION, UString("7-Zip " MY_VERSION_CPU));
-  SetItemText(IDT_ABOUT_DATE, LLL(MY_DATE));
+  if (title.IsEmpty())
+    title = "About " MY_PRODUCT_NAME;
+  else
+    title.Replace(L"7-Zip", LLL(MY_PRODUCT_NAME));
+  NWindows::MySetWindowText(*this, title);
+  SetItemText(IDT_ABOUT_VERSION, UString(MY_PRODUCT_NAME " " MY_PRODUCT_VERSION_CPU));
+  SetItemText(IDT_ABOUT_DATE, UString("7-Zip source date: " MY_DATE));
+  SetItemText(IDT_ABOUT_INFO, UString("Based on 7-Zip " MY_VERSION));
   
   NormalizePosition();
   return CModalDialog::OnInit();

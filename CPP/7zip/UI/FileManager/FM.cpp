@@ -1,4 +1,5 @@
 // FM.cpp
+// Modified 2026-11-16 for the fork: renamed the file manager window.
 
 #include "StdAfx.h"
 
@@ -23,6 +24,8 @@
 #include "../../../Windows/MemoryLock.h"
 #include "../../../Windows/NtCheck.h"
 #include "../../../Windows/System.h"
+
+#include "../../MyVersion.h"
 
 #ifndef UNDER_CE
 #include "../../../Windows/SecurityUtils.h"
@@ -246,7 +249,7 @@ static BOOL InitInstance(int nCmdShow)
 
   // LoadString(hInstance, IDS_CLASS, windowClass, MAX_LOADSTRING);
 
-  UString title ("7-Zip"); // LangString(IDS_APP_TITLE, 0x03000000);
+  UString title (MY_PRODUCT_NAME);
 
   /*
   //If it is already running, then focus on the window
@@ -566,7 +569,7 @@ static const CSwitchForm kSwitchForms[kNumSwitches] =
 
 static void ErrorMessage(const wchar_t *s)
 {
-  MessageBoxW(NULL, s, L"7-Zip", MB_ICONERROR);
+  MessageBoxW(NULL, s, UString(MY_PRODUCT_NAME), MB_ICONERROR);
 }
 
 static void ErrorMessage(const char *s)

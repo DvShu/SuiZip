@@ -1,3 +1,4 @@
+// Modified 2026-11-16 for the fork: add its classic context menu icon.
 #include "resource.h"
 
 STRINGTABLE
@@ -16,4 +17,4 @@ BEGIN
   IDS_SELECT_FILES         "You must select one or more files"
 END
 
-IDB_MENU_LOGO  BITMAP  "../../UI/Explorer/MenuLogo.bmp"
+IDB_MENU_LOGO  BITMAP  "../../../../assets/suizip-menu.bmp"

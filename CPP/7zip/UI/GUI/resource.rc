@@ -1,3 +1,4 @@
+// Modified 2026-11-16 for the fork: branded the GUI name and icon.
 #include "../../MyVersionInfo.rc"
 // #include <winnt.h>
 
@@ -6,9 +7,9 @@
 
 #include "../FileManager/resourceGui.rc"
 
-MY_VERSION_INFO(MY_VFT_APP, "7-Zip GUI", "7zg", "7zg.exe")
+MY_VERSION_INFO(MY_VFT_APP, MY_PRODUCT_NAME " GUI", "7zg", "7zg.exe")
 
-IDI_ICON ICON "FM.ico"
+IDI_ICON ICON "../../../../assets/suizip.ico"
 
 #ifndef UNDER_CE
 1 24 MOVEABLE PURE "7zG.exe.manifest"

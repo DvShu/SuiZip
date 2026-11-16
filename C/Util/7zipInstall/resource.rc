@@ -1,3 +1,4 @@
+// Modified 2026-11-16 for the fork: use its name and icon in Setup resources.
 #include <windows.h>
 // #include <winnt.h>
 // #include <WinUser.h>
@@ -7,9 +8,9 @@
 #include "../../7zVersion.rc"
 #include "resource.h"
 
-MY_VERSION_INFO(MY_VFT_APP, "7-Zip Installer", "7zipInstall", "7zipInstall.exe")
+MY_VERSION_INFO(MY_VFT_APP, MY_PRODUCT_NAME " Installer", "7zipInstall", "7zipInstall.exe")
 
-1  ICON "7zip.ico"
+1  ICON "../../../assets/suizip.ico"
 
 #define xc 184
 #define yc 96
@@ -29,7 +30,7 @@ MY_VERSION_INFO(MY_VFT_APP, "7-Zip Installer", "7zipInstall", "7zipInstall.exe")
 
 IDD_INSTALL DIALOG 0, 0, xs, ys
 STYLE DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE
-CAPTION "Install 7-Zip"
+CAPTION MY_PRODUCT_NAME
 FONT 8, "MS Shell Dlg"
 BEGIN
   LTEXT          "Destination folder:", IDT_EXTRACT_EXTRACT_TO, m, m, xc, 8

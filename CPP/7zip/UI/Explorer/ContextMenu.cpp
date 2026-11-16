@@ -1,4 +1,5 @@
 // ContextMenu.cpp
+// Modified 2026-11-16 for the fork: use its name in Explorer menus.
 
 #include "StdAfx.h"
 
@@ -16,6 +17,7 @@
 // for IS_INTRESOURCE():
 #include "../../../Windows/Window.h"
 
+#include "../../MyVersion.h"
 #include "../../PropID.h"
 
 #include "../Common/ArchiveName.h"
@@ -1015,7 +1017,7 @@ Z7_COMWF_B CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
     CMenu menu;
     menu.Attach(hMenu);
     menuDestroyer.Disable();
-    MyAddSubMenu(_commandMap, kMainVerb, menu, indexMenu++, currentCommandID++, (UString)"7-Zip",
+    MyAddSubMenu(_commandMap, kMainVerb, menu, indexMenu++, currentCommandID++, (UString)MY_PRODUCT_NAME,
         popupMenu, // popupMenu.Detach(),
         bitmap);
   }
@@ -1642,10 +1644,10 @@ Z7_COMWF_B CZipExplorerCommand::GetTitle(IShellItemArray *psiItemArray, LPWSTR *
   if (IsRoot)
   {
     LoadItems(psiItemArray);
-    name = "7-Zip"; //  "New"
+    name = MY_PRODUCT_NAME; //  "New"
   }
   else
-    name = "7-Zip item";
+    name = MY_PRODUCT_NAME " item";
   
   if (!_commandMap_Cur.IsEmpty())
   {

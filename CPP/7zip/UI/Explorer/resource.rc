@@ -1,10 +1,11 @@
+// Modified 2026-11-16 for the fork: branded the shell extension name and icon.
 #include "../../MyVersionInfo.rc"
 #include "resource2.rc"
 
-MY_VERSION_INFO_DLL("7-Zip Shell Extension", "7-zip")
+MY_VERSION_INFO_DLL(MY_PRODUCT_NAME " Shell Extension", "7-zip")
 
 #ifndef UNDER_CE
 1 24 MOVEABLE PURE "7-zip.dll.manifest"
 #endif
 
-IDI_ICON ICON "../FileManager/FM.ico"
+IDI_ICON ICON "../../../../assets/suizip.ico"

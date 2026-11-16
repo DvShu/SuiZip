@@ -1,4 +1,5 @@
 // App.cpp
+// Modified 2026-11-16 for the fork: keep its name in the window title during navigation.
 
 #include "StdAfx.h"
 
@@ -7,6 +8,8 @@
 
 #include "../../../Windows/FileName.h"
 #include "../../../Windows/PropVariantConv.h"
+
+#include "../../MyVersion.h"
 
 /*
 #include "Windows/COM.h"
@@ -964,7 +967,9 @@ void CApp::RefreshTitle(bool always)
 {
   UString path = GetFocusedPanel()._currentFolderPrefix;
   if (path.IsEmpty())
-    path = "7-Zip"; // LangString(IDS_APP_TITLE);
+    path = MY_PRODUCT_NAME;
+  else
+    path += " - " MY_PRODUCT_NAME;
   if (!always && path == PrevTitle)
     return;
   PrevTitle = path;

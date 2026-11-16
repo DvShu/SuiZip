@@ -1,4 +1,5 @@
 // RegistryContextMenu.cpp
+// Modified 2026-11-16 for the fork: use the product name for shell registration.
 
 #include "StdAfx.h"
 
@@ -6,6 +7,7 @@
 
 #include "../../../Windows/Registry.h"
 
+#include "../../MyVersion.h"
 #include "RegistryContextMenu.h"
 
 using namespace NWindows;
@@ -20,7 +22,7 @@ using namespace NRegistry;
 #define k_Clsid_A "{23170F69-40C1-278A-1000-000100020000}"
 
 static LPCTSTR const k_Clsid = TEXT(k_Clsid_A);
-static LPCTSTR const k_ShellExtName = TEXT("7-Zip Shell Extension");
+static LPCTSTR const k_ShellExtName = TEXT(MY_PRODUCT_NAME) TEXT(" Shell Extension");
 
 static LPCTSTR const k_Approved = TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved");
 static LPCTSTR const k_Inproc = TEXT("InprocServer32");

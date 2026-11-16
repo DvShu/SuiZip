@@ -1,4 +1,5 @@
 // Main.cpp
+// Modified 2026-11-16 for the fork: show the product name and version in command-line output.
 
 #include "StdAfx.h"
 
@@ -123,10 +124,10 @@ DECLARE_AND_SET_CLIENT_VERSION_VAR
 #endif
 
 
-static const char * const kCopyrightString = "\n7-Zip"
+static const char * const kCopyrightString = "\n" MY_PRODUCT_NAME
   PROG_POSTFIX_2
-  " " MY_VERSION_CPU
-  " : " MY_COPYRIGHT_DATE "\n";
+  " " MY_PRODUCT_VERSION_CPU
+  " : " MY_COPYRIGHT " : based on 7-Zip " MY_VERSION " (" MY_DATE ")\n";
 
 static const char * const kHelpString =
     "Usage: 7z"
@@ -209,7 +210,7 @@ static const char * const kHelpString =
 
 static const char * const kEverythingIsOk = "Everything is Ok";
 static const char * const kUserErrorMessage = "Incorrect command line";
-static const char * const kNoFormats = "7-Zip cannot find the code that works with archives.";
+static const char * const kNoFormats = MY_PRODUCT_NAME " cannot find the code that works with archives.";
 static const char * const kUnsupportedArcTypeMessage = "Unsupported archive type";
 // static const char * const kUnsupportedUpdateArcType = "Can't create archive for that type";
 

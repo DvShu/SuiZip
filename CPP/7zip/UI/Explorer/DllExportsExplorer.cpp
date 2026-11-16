@@ -1,4 +1,5 @@
 // DLLExportsExplorer.cpp
+// Modified 2026-11-16 for the fork: use the product name for shell registration.
 //
 // Notes:
 // Win2000:
@@ -36,11 +37,12 @@
 #include "../../../Windows/NtCheck.h"
 #include "../../../Windows/Registry.h"
 
+#include "../../MyVersion.h"
 #include "../FileManager/IFolder.h"
 
 #include "ContextMenu.h"
 
-static LPCTSTR const k_ShellExtName = TEXT("7-Zip Shell Extension");
+static LPCTSTR const k_ShellExtName = TEXT(MY_PRODUCT_NAME) TEXT(" Shell Extension");
 static LPCTSTR const k_Approved = TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved");
 
 // {23170F69-40C1-278A-1000-000100020000}

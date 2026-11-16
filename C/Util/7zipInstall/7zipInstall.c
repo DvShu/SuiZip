@@ -33,6 +33,7 @@ typedef enum {
 #include "../../7zAlloc.h"
 #include "../../7zCrc.h"
 #include "../../7zFile.h"
+/* Modified 2026-11-16 for the fork: use its name and product version in Setup. */
 #include "../../7zVersion.h"
 #include "../../CpuArch.h"
 #include "../../DllSecur.h"
@@ -56,7 +57,7 @@ typedef enum {
 #define Z7_7ZIP_CUR_VER ((MY_VER_MAJOR << 16) | MY_VER_MINOR)
 #define Z7_7ZIP_DLL_VER_COMPAT ((16 << 16) | 3)
 
-static LPCSTR const k_7zip = "7-Zip";
+static LPCSTR const k_7zip = MY_PRODUCT_NAME;
 
 static LPCWSTR const k_Reg_Software_7zip = L"Software\\7-Zip";
 
@@ -66,7 +67,7 @@ static LPCWSTR const k_Reg_Software_7zip = L"Software\\7-Zip";
   #define Z7_64BIT_INSTALLER 1
 #endif
 
-#define k_7zip_with_Ver_base L"7-Zip " LLL(MY_VERSION)
+#define k_7zip_with_Ver_base LLL(MY_PRODUCT_NAME) L" " LLL(MY_PRODUCT_VERSION)
 
 #ifdef Z7_64BIT_INSTALLER
 
@@ -825,8 +826,8 @@ static void SetShellProgramsGroup(HWND hwndOwner)
       for (k = 0; k < 2; k++)
       {
         CpyAscii(link + baseLen, k == 0 ?
-            "7-Zip File Manager.lnk" :
-            "7-Zip Help.lnk"
+            MY_PRODUCT_NAME " File Manager.lnk" :
+            MY_PRODUCT_NAME " Help.lnk"
            );
         wcscpy(destPath, path);
         CatAscii(destPath, k == 0 ?
@@ -848,7 +849,7 @@ static void SetShellProgramsGroup(HWND hwndOwner)
 }
 
 static LPCWSTR const k_Shell_Approved = L"Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved";
-static LPCWSTR const k_7zip_ShellExtension = L"7-Zip Shell Extension";
+static LPCWSTR const k_7zip_ShellExtension = LLL(MY_PRODUCT_NAME) L" Shell Extension";
 
 static void WriteCLSID(void)
 {
@@ -944,7 +945,7 @@ static void WriteShellEx(void)
     if (res == ERROR_SUCCESS)
     {
       MyRegistry_SetString(destKey, L"DisplayName", k_7zip_with_Ver_str);
-      MyRegistry_SetString(destKey, L"DisplayVersion", LLL(MY_VERSION_NUMBERS));
+      MyRegistry_SetString(destKey, L"DisplayVersion", LLL(MY_PRODUCT_VERSION));
       MyRegistry_SetString(destKey, L"DisplayIcon", destPath);
       MyRegistry_SetString(destKey, L"InstallLocation", path);
 
@@ -961,8 +962,8 @@ static void WriteShellEx(void)
 
       MyRegistry_SetDWORD(destKey, L"EstimatedSize", g_TotalSize >> 10);
       
-      MyRegistry_SetDWORD(destKey, L"VersionMajor", MY_VER_MAJOR);
-      MyRegistry_SetDWORD(destKey, L"VersionMinor", MY_VER_MINOR);
+      MyRegistry_SetDWORD(destKey, L"VersionMajor", MY_PRODUCT_VER_MAJOR);
+      MyRegistry_SetDWORD(destKey, L"VersionMinor", MY_PRODUCT_VER_MINOR);
   
       MyRegistry_SetString(destKey, L"Publisher", LLL(MY_AUTHOR_NAME));
       

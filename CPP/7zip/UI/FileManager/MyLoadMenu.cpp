@@ -1,4 +1,5 @@
 // MyLoadMenu.cpp
+// Modified 2026-11-16 for the fork: use its name in the localized About menu.
 
 #include "StdAfx.h"
 
@@ -7,6 +8,7 @@
 #include "../../../Windows/TimeUtils.h"
 #include "../../../Windows/Control/Dialog.h"
 
+#include "../../MyVersion.h"
 #include "../../PropID.h"
 
 #include "../Common/CompressCall.h"
@@ -251,6 +253,9 @@ static void MyChangeMenu(HMENU menuLoc, unsigned menuID, unsigned level, unsigne
 
         if (newString.IsEmpty())
           continue;
+
+        if (item.wID == IDM_ABOUT)
+          newString.Replace(L"7-Zip", UString(MY_PRODUCT_NAME));
 
         const int tabPos = item.StringValue.ReverseFind(L'\t');
         if (tabPos >= 0)

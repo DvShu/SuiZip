@@ -1,4 +1,5 @@
 // MenuPage.cpp
+// Modified 2026-11-16 for the fork: use the product name in context menu settings.
 
 #include "StdAfx.h"
 
@@ -8,6 +9,7 @@
 #include "../../../Windows/ErrorMsg.h"
 #include "../../../Windows/FileFind.h"
 
+#include "../../MyVersion.h"
 #include "../Explorer/ContextMenuFlags.h"
 #include "../Explorer/RegistryContextMenu.h"
 #include "../Explorer/resource.h"
@@ -115,6 +117,8 @@ bool CMenuPage::OnInit()
     {
       CWindow window(GetItem(IDX_SYSTEM_INTEGRATE_TO_MENU));
       window.GetText(s);
+      s.Replace(L"7-Zip", UString(MY_PRODUCT_NAME));
+      window.SetText(s);
     }
     UString bit64 = LangString(IDS_PROP_BIT64);
     if (bit64.IsEmpty())
@@ -242,7 +246,7 @@ bool CMenuPage::OnInit()
     if (menuItem.Flag == kCRC)
       s = "CRC SHA";
     else if (menuItem.Flag == kCRC_Cascaded)
-      s = "7-Zip > CRC SHA";
+      s = MY_PRODUCT_NAME " > CRC SHA";
     if (menuItem.Flag == kOpenAs
         || menuItem.Flag == kCRC
         || menuItem.Flag == kCRC_Cascaded)
@@ -290,7 +294,7 @@ bool CMenuPage::OnInit()
 
 static void ShowMenuErrorMessage(const wchar_t *m, HWND hwnd)
 {
-  MessageBoxW(hwnd, m, L"7-Zip", MB_ICONERROR);
+  MessageBoxW(hwnd, m, UString(MY_PRODUCT_NAME), MB_ICONERROR);
 }
 
 #endif

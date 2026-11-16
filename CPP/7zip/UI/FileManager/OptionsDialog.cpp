@@ -1,10 +1,12 @@
 // OptionsDialog.cpp
+// Modified 2026-11-16 for the fork: use its name for the context menu tab.
 
 #include "StdAfx.h"
 
 #include "../../../Windows/Control/Dialog.h"
 #include "../../../Windows/Control/PropertyPage.h"
 
+#include "../../MyVersion.h"
 #include "DialogSize.h"
 
 #include "EditPage.h"
@@ -59,6 +61,8 @@ void OptionsDialog(HWND hwndOwner, HINSTANCE /* hInstance */)
     LangString_OnlyFromLangFile(page.ID, page.Title);
     #endif
     page.Page = pagePointers[i];
+    if (page.Page == &menuPage)
+      page.Title = MY_PRODUCT_NAME;
   }
 
   const INT_PTR res = NControl::MyPropertySheet(pages, hwndOwner, LangString(IDS_OPTIONS));
