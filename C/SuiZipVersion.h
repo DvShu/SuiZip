@@ -2,7 +2,7 @@
 #define SUIZIP_VERSION_H
 
 #define MY_PRODUCT_VER_MAJOR 0
-#define MY_PRODUCT_VER_MINOR 1
+#define MY_PRODUCT_VER_MINOR 2
 #define MY_PRODUCT_VER_PATCH 0
 
 #define SUIZIP_VERSION_STRING_(part) #part

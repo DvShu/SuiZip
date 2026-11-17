@@ -60,6 +60,7 @@ typedef enum {
 static LPCSTR const k_7zip = MY_PRODUCT_NAME;
 
 static LPCWSTR const k_Reg_Software_7zip = L"Software\\7-Zip";
+static LPCWSTR const k_Reg_Uninstall_7zip = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\7-Zip";
 
 // #define Z7_64BIT_INSTALLER 1
 
@@ -616,12 +617,12 @@ static LPCWSTR FindSubString(LPCWSTR s1, const char *s2)
   }
 }
 
-static void Set7zipPostfix(WCHAR *s)
+static void SetProductFolder(WCHAR *s)
 {
   NormalizePrefix(s);
-  if (FindSubString(s, "7-Zip"))
+  if (FindSubString(s, "\\" MY_PRODUCT_NAME "\\"))
     return;
-  CatAscii(s, "7-Zip\\");
+  CatAscii(s, MY_PRODUCT_NAME "\\");
 }
     
 
@@ -702,7 +703,7 @@ CALLBACK MyDlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
           #ifndef UNDER_CE
           
           WCHAR s[MAX_PATH];
-          WCHAR s2[MAX_PATH];
+          WCHAR s2[MAX_PATH + sizeof(MY_PRODUCT_NAME) + 1];
           GetDlgItemTextW(hwnd, IDE_EXTRACT_PATH, s, MAX_PATH);
           if (MyBrowseForFolder(hwnd, L"Select the folder for installation:" ,
               0
@@ -711,7 +712,7 @@ CALLBACK MyDlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
               // | BIF_STATUSTEXT // doesn't work for BIF_NEWDIALOGSTYLE
               , s, s2))
           {
-            Set7zipPostfix(s2);
+            SetProductFolder(s2);
             SetDlgItemTextW(hwnd, IDE_EXTRACT_PATH, s2);
           }
           
@@ -941,7 +942,7 @@ static void WriteShellEx(void)
   
   {
     HKEY destKey = 0;
-    LONG res = MyRegistry_CreateKey(HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\7-Zip", &destKey);
+    LONG res = MyRegistry_CreateKey(HKEY_LOCAL_MACHINE, k_Reg_Uninstall_7zip, &destKey);
     if (res == ERROR_SUCCESS)
     {
       MyRegistry_SetString(destKey, L"DisplayName", k_7zip_with_Ver_str);
@@ -1123,11 +1124,15 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   {
     HKEY key = 0;
     BoolInt ok = False;
-    const LONG res = RegOpenKeyExW(HKEY_CURRENT_USER, k_Reg_Software_7zip, 0, KEY_READ | k_Reg_WOW_Flag, &key);
+    const LONG res = RegOpenKeyExW(HKEY_LOCAL_MACHINE, k_Reg_Uninstall_7zip, 0, KEY_READ | k_Reg_WOW_Flag, &key);
     if (res == ERROR_SUCCESS)
     {
-      ok = MyRegistry_QueryString(key, k_Reg_Path32, path);
-      // ok = MyRegistry_QueryString(key, k_Reg_Path, path);
+      WCHAR displayName[MAX_PATH + 1] = { 0 };
+      // Upgrade an existing installation of this product at its current path.
+      ok = MyRegistry_QueryString(key, L"DisplayName", displayName)
+          && FindSubString(displayName, MY_PRODUCT_NAME " ") == displayName
+          && MyRegistry_QueryString(key, L"InstallLocation", path)
+          && path[0] != 0;
       RegCloseKey(key);
     }
     
@@ -1160,7 +1165,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             #endif
             );
 
-      Set7zipPostfix(path);
+      SetProductFolder(path);
     }
   }
 

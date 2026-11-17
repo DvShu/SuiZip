@@ -1,5 +1,6 @@
 // FM.cpp
 // Modified 2026-11-16 for the fork: update the window name, background and menu bar.
+// Modified 2026-11-17 for the fork: size the first window to fit the desktop work area.
 
 #include "StdAfx.h"
 
@@ -36,12 +37,14 @@
 #include "resource.h"
 
 #include "App.h"
+#include "FileManagerStyle.h"
 #include "FormatUtils.h"
 #include "LangUtils.h"
 #include "MyLoadMenu.h"
 #include "Panel.h"
 #include "RegistryUtils.h"
 #include "StringUtils.h"
+#include "SystemPage.h"
 #include "ViewSettings.h"
 
 using namespace NWindows;
@@ -309,6 +312,21 @@ static BOOL InitInstance(int nCmdShow)
     xSize = RECT_SIZE_X(info.rect);
     ySize = RECT_SIZE_Y(info.rect);
   }
+  #ifndef UNDER_CE
+  else
+  {
+    RECT workArea;
+    if (::SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0))
+    {
+      const int workWidth = RECT_SIZE_X(workArea);
+      const int workHeight = RECT_SIZE_Y(workArea);
+      xSize = MyMin(NFileManagerStyle::Scale(NULL, 820), workWidth * 9 / 10);
+      ySize = MyMin(NFileManagerStyle::Scale(NULL, 500), workHeight * 9 / 10);
+      x = workArea.left + (workWidth - xSize) / 2;
+      y = workArea.top + (workHeight - ySize) / 2;
+    }
+  }
+  #endif
 
 
   if (g_PanelsInfoDefined)
@@ -805,6 +823,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */,
     {
       #ifdef _WIN32
       My_SetDefaultDllDirectories();
+      #endif
+      #ifndef UNDER_CE
+      UString program, arguments, command, changes;
+      SplitStringToTwoStrings(GetCommandLineW(), program, arguments);
+      arguments.Trim();
+      SplitStringToTwoStrings(arguments, command, changes);
+      if (command == kApplyAllUsersAssociations)
+        return (int)ApplyAllUsersAssociations(changes);
       #endif
       return WinMain2(nCmdShow);
     }

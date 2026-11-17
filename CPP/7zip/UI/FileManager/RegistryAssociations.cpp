@@ -1,4 +1,5 @@
 // RegistryAssociations.cpp
+// Modified 2026-11-17 for the fork: update association values and propagate write errors.
 
 #include "StdAfx.h"
 
@@ -92,14 +93,11 @@ bool CShellExtInfo::IsIt7Zip() const
 
 LONG DeleteShellExtensionInfo(HKEY hkey, const CSysString &ext)
 {
-  // NSynchronization::CCriticalSectionLock lock(g_CriticalSection);
-  CKey rootKey;
-  rootKey.Attach(hkey);
-  LONG res = rootKey.RecurseDeleteKey(GetExtKeyPath(hkey, ext));
-  // then we delete only 7-Zip.* key.
-  rootKey.RecurseDeleteKey(GetFullKeyPath(hkey, GetExtProgramKeyName(ext)));
-  rootKey.Detach();
-  return res;
+  CKey extKey;
+  LONG res = extKey.Open(hkey, GetExtKeyPath(hkey, ext), KEY_SET_VALUE);
+  if (res == ERROR_SUCCESS)
+    res = extKey.DeleteValue((LPCTSTR)NULL);
+  return res == ERROR_FILE_NOT_FOUND ? ERROR_SUCCESS : res;
 }
 
 LONG AddShellExtensionInfo(HKEY hkey,
@@ -110,58 +108,31 @@ LONG AddShellExtensionInfo(HKEY hkey,
     // , const void *shellNewData, int shellNewDataSize
     )
 {
-  LONG res = 0;
-  DeleteShellExtensionInfo(hkey, ext);
-  // NSynchronization::CCriticalSectionLock lock(g_CriticalSection);
-  CSysString programKeyName;
-  {
-    CSysString ext2 (ext);
-    if (iconIndex < 0)
-      ext2 = "*";
-    programKeyName = GetExtProgramKeyName(ext2);
-  }
-  {
-    CKey extKey;
-    res = extKey.Create(hkey, GetExtKeyPath(hkey, ext));
-    extKey.SetValue(NULL, programKeyName);
-    /*
-    if (shellNewData != NULL)
-    {
-      CKey shellNewKey;
-      shellNewKey.Create(extKey, kShellNewKeyName);
-      shellNewKey.SetValue(kShellNewDataValueName, shellNewData, shellNewDataSize);
-    }
-    */
-  }
+  const CSysString programKeyName = GetExtProgramKeyName(iconIndex < 0 ? CSysString("*") : ext);
   CKey programKey;
-  programKey.Create(hkey, GetFullKeyPath(hkey, programKeyName));
-  programKey.SetValue(NULL, programTitle);
-  {
-    CKey iconKey;
-    UString iconPathFull = iconPath;
-    if (iconIndex < 0)
-      iconIndex = 0;
-    // if (iconIndex >= 0)
-    {
-      iconPathFull.Add_Char(',');
-      iconPathFull.Add_UInt32((UInt32)iconIndex);
-    }
-    iconKey.Create(programKey, kDefaultIconKeyName);
-    iconKey.SetValue(NULL, iconPathFull);
-  }
+  RINOK(programKey.Create(hkey, GetFullKeyPath(hkey, programKeyName)))
+  RINOK(programKey.SetValue(NULL, programTitle))
+
+  CKey iconKey;
+  UString iconPathFull = iconPath;
+  iconPathFull.Add_Char(',');
+  iconPathFull.Add_UInt32((UInt32)MyMax(iconIndex, 0));
+  RINOK(iconKey.Create(programKey, kDefaultIconKeyName))
+  RINOK(iconKey.SetValue(NULL, iconPathFull))
 
   CKey shellKey;
-  shellKey.Create(programKey, kShellKeyName);
-  shellKey.SetValue(NULL, TEXT(""));
+  RINOK(shellKey.Create(programKey, kShellKeyName))
+  RINOK(shellKey.SetValue(NULL, TEXT("")))
 
   CKey openKey;
-  openKey.Create(shellKey, kOpenKeyName);
-  openKey.SetValue(NULL, TEXT(""));
-  
+  RINOK(openKey.Create(shellKey, kOpenKeyName))
+  RINOK(openKey.SetValue(NULL, TEXT("")))
+
   CKey commandKey;
-  commandKey.Create(openKey, kCommandKeyName);
-  commandKey.SetValue(NULL, programOpenCommand);
-  return res;
+  RINOK(commandKey.Create(openKey, kCommandKeyName))
+  RINOK(commandKey.SetValue(NULL, programOpenCommand))
+
+  return SetValue(hkey, GetExtKeyPath(hkey, ext), NULL, programKeyName);
 }
 
 }

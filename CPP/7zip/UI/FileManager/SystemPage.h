@@ -1,4 +1,5 @@
 // SystemPage.h
+// Modified 2026-11-17 for the fork: expose the all-users association command.
  
 #ifndef ZIP7_INC_SYSTEM_PAGE_H
 #define ZIP7_INC_SYSTEM_PAGE_H
@@ -9,6 +10,11 @@
 
 #include "FilePlugins.h"
 #include "RegistryAssociations.h"
+
+#ifndef UNDER_CE
+extern const wchar_t kApplyAllUsersAssociations[];
+LONG ApplyAllUsersAssociations(const UString &arguments);
+#endif
 
 enum EExtState
 {
@@ -28,6 +34,7 @@ struct CModifiedExtInfo: public NRegistryAssoc::CShellExtInfo
   CModifiedExtInfo(): ImageIndex(-1) {}
 
   CSysString GetString() const;
+  bool HasChange() const { return OldState != State && State != kExtState_Other; }
 
   void SetState(const UString &iconPath)
   {

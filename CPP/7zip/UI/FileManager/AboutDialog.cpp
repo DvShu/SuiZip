@@ -1,5 +1,6 @@
 // AboutDialog.cpp
 // Modified 2026-11-16 for the fork: show its name and version in About.
+// Modified 2026-11-17 for the fork: load a larger About logo at the display DPI.
 
 #include "StdAfx.h"
 
@@ -7,9 +8,12 @@
 
 #include "../../MyVersion.h"
 
+#include "../../../Windows/Control/Static.h"
+
 #include "../Common/LoadCodecs.h"
 
 #include "AboutDialog.h"
+#include "FileManagerStyle.h"
 #include "PropertyNameRes.h"
 
 #include "HelpUtils.h"
@@ -22,6 +26,7 @@
 #define LLL(quote) LLL_(quote)
 
 extern CCodecs *g_CodecsObj;
+extern HINSTANCE g_hInstance;
 
 bool CAboutDialog::OnInit()
 {
@@ -48,9 +53,24 @@ bool CAboutDialog::OnInit()
   SetItemText(IDT_ABOUT_VERSION, UString(MY_PRODUCT_NAME " " MY_PRODUCT_VERSION_CPU));
   SetItemText(IDT_ABOUT_DATE, UString("7-Zip source date: " MY_DATE));
   SetItemText(IDT_ABOUT_INFO, UString("Based on 7-Zip " MY_VERSION));
-  
+
+  NWindows::NControl::CStatic logo;
+  logo.Attach(GetItem(IDC_ABOUT_LOGO));
+  const int logoSize = NFileManagerStyle::Scale(*this, 64);
+  logo.SetIcon((HICON)::LoadImage(g_hInstance, MAKEINTRESOURCE(IDI_LOGO),
+      IMAGE_ICON, logoSize, logoSize, 0));
+
   NormalizePosition();
   return CModalDialog::OnInit();
+}
+
+bool CAboutDialog::OnDestroy()
+{
+  NWindows::NControl::CStatic logo;
+  logo.Attach(GetItem(IDC_ABOUT_LOGO));
+  if (const HICON icon = logo.SetIcon(NULL))
+    ::DestroyIcon(icon);
+  return CModalDialog::OnDestroy();
 }
 
 void CAboutDialog::OnHelp()

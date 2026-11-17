@@ -1,4 +1,5 @@
 // Windows/Control/PropertyPage.cpp
+// Modified 2026-11-17 for the fork: hide the property sheet's title-bar Help button.
 
 #include "StdAfx.h"
 
@@ -73,6 +74,11 @@ PROPSHEETHEADER fields depend from
 
 INT_PTR MyPropertySheet(const CObjectVector<CPageInfo> &pagesInfo, HWND hwndParent, const UString &title)
 {
+  const DWORD flags = PSH_PROPSHEETPAGE
+    #ifdef PSH_NOCONTEXTHELP
+    | PSH_NOCONTEXTHELP
+    #endif
+    ;
   unsigned i;
   #ifndef _UNICODE
   AStringVector titles;
@@ -134,7 +140,7 @@ INT_PTR MyPropertySheet(const CObjectVector<CPageInfo> &pagesInfo, HWND hwndPare
   {
     PROPSHEETHEADERA sheet;
     sheet.dwSize = sizeof(sheet);
-    sheet.dwFlags = PSH_PROPSHEETPAGE;
+    sheet.dwFlags = flags;
     sheet.hwndParent = hwndParent;
     sheet.hInstance = g_hInstance;
     AString titleA (GetSystemString(title));
@@ -150,7 +156,7 @@ INT_PTR MyPropertySheet(const CObjectVector<CPageInfo> &pagesInfo, HWND hwndPare
   {
     PROPSHEETHEADERW sheet;
     sheet.dwSize = sizeof(sheet);
-    sheet.dwFlags = PSH_PROPSHEETPAGE;
+    sheet.dwFlags = flags;
     sheet.hwndParent = hwndParent;
     sheet.hInstance = g_hInstance;
     sheet.pszCaption = title;

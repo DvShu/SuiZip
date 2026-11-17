@@ -1,27 +1,23 @@
 // Modified 2026-11-16 for the fork: identify the fork, show its icon and credit 7-Zip.
+// Modified 2026-11-17 for the fork: center a larger logo above the About details.
 #include "AboutDialogRes.h"
 #include "../../GuiCommon.rc"
 #include "../../MyVersion.h"
 
-#define xc 144
-#define yc 144
-
-#define y 93
+#define xc 168
+#define yc 126
+#define aboutButtonsLeft 24
 
 IDI_LOGO ICON "../../../../assets/suizip.ico"
-
-#ifndef SS_REALSIZEIMAGE
-#define SS_REALSIZEIMAGE 0x800
-#endif
 
 IDD_ABOUT DIALOG 0, 0, xs, ys  MY_MODAL_DIALOG_STYLE  MY_FONT
 CAPTION MY_PRODUCT_NAME
 {
-  DEFPUSHBUTTON  "OK", IDOK, bx1, by, bxs, bys
-  PUSHBUTTON  "www.7-zip.org", IDB_ABOUT_HOMEPAGE, bx2, by, bxs, bys
-  ICON   IDI_LOGO, -1, m, m, 32, 32, SS_REALSIZEIMAGE
-  LTEXT  "", IDT_ABOUT_VERSION, m, 54, xc, 8
-  LTEXT  "", IDT_ABOUT_DATE, m, 67, xc, 8
-  LTEXT  MY_COPYRIGHT, -1, m, 80, xc, 8
-  LTEXT  "", IDT_ABOUT_INFO, m, y, xc, (by - y - 1)
+  DEFPUSHBUTTON  "OK", IDOK, (aboutButtonsLeft + bxs + m), by, bxs, bys
+  PUSHBUTTON  "www.7-zip.org", IDB_ABOUT_HOMEPAGE, aboutButtonsLeft, by, bxs, bys
+  CONTROL  "", IDC_ABOUT_LOGO, "Static", SS_ICON | SS_CENTERIMAGE, m, m, xc, 48
+  CTEXT  "", IDT_ABOUT_VERSION, m, 61, xc, 10
+  CTEXT  "", IDT_ABOUT_INFO, m, 75, xc, 10
+  CTEXT  "", IDT_ABOUT_DATE, m, 86, xc, 10
+  CTEXT  MY_COPYRIGHT, -1, m, 97, xc, 10
 }

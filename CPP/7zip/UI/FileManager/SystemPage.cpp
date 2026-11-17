@@ -1,4 +1,6 @@
-// SystemPage.cpp
+﻿// SystemPage.cpp
+// Modified 2026-11-17 for the fork: use its name for file association labels.
+// Modified 2026-11-17 for the fork: apply all-users associations with Windows elevation.
 
 #include "StdAfx.h"
 
@@ -15,6 +17,11 @@
 
 #include "../../../Windows/DLL.h"
 #include "../../../Windows/ErrorMsg.h"
+#include "../../../Windows/Handle.h"
+#include "../../../Windows/Registry.h"
+
+#include "../../MyVersion.h"
+#include "../Agent/Agent.h"
 
 #include "HelpUtils.h"
 #include "IFolder.h"
@@ -29,20 +36,13 @@ using namespace NWindows;
 extern bool g_IsNT;
 #endif
 
-#ifdef Z7_LANG
-static const UInt32 kLangIDs[] =
-{
-  IDT_SYSTEM_ASSOCIATE
-};
-#endif
-
 #define kSystemTopic "FM/options.htm#system"
 
 CSysString CModifiedExtInfo::GetString() const
 {
   const char *s;
   if (State == kExtState_7Zip)
-    s = "7-Zip";
+    s = MY_PRODUCT_NAME;
   else if (State == kExtState_Clear)
     s = "";
   else if (Other7Zip)
@@ -157,9 +157,27 @@ bool CSystemPage::OnInit()
 {
   _needSave = false;
 
+  UString label;
 #ifdef Z7_LANG
-  LangSetDlgItems(*this, kLangIDs, Z7_ARRAY_SIZE(kLangIDs));
+  LangSetDlgItems(*this, NULL, 0);
+  LangString_OnlyFromLangFile(IDT_SYSTEM_ASSOCIATE, label);
+  if (g_LangID.IsEqualTo_Ascii_NoCase("zh-cn"))
+  {
+    #ifndef UNDER_CE
+    SetItemText(IDT_SYSTEM_TOGGLE_HELP, L"切换选中的文件类型。未选中时切换整列。\n应用所有用户的更改需要管理员权限。");
+    SetItemText(IDB_SYSTEM_CURRENT, L"切换当前用户关联");
+    SetItemText(IDB_SYSTEM_ALL, L"切换所有用户关联");
+    #else
+    SetItemText(IDT_SYSTEM_TOGGLE_HELP, L"切换选中的文件类型。未选中时切换全部类型。");
+    SetItemText(IDB_SYSTEM_CURRENT, L"切换关联");
+    #endif
+  }
 #endif
+  if (label.IsEmpty())
+    label = "Associate " MY_PRODUCT_NAME " with:";
+  else
+    label.Replace(L"7-Zip", UString(MY_PRODUCT_NAME));
+  SetItemText(IDT_SYSTEM_ASSOCIATE, label);
 
   _listView.Attach(GetItem(IDL_SYSTEM_ASSOCIATE));
   _listView.SetUnicodeFormat();
@@ -266,13 +284,145 @@ bool CSystemPage::OnInit()
 }
 
 
-static UString GetProgramCommand()
+static UString GetProgramCommand(const UString &programPath)
 {
-  UString s ('\"');
-  s += fs2us(NDLL::GetModuleDirPrefix());
-  s += "7zFM.exe\" \"%1\"";
-  return s;
+  UString command ('\"');
+  command += programPath;
+  command += L"\" \"%1\"";
+  return command;
 }
+
+
+static LONG SetAssociation(HKEY key, const UString &ext, bool associate,
+    const UString &command, const UString &iconPath, int iconIndex)
+{
+  const CSysString systemExt = GetSystemString(ext);
+  if (!associate)
+    return NRegistryAssoc::DeleteShellExtensionInfo(key, systemExt);
+
+  UString title = ext;
+  title += " Archive";
+  return NRegistryAssoc::AddShellExtensionInfo(key, systemExt, title, command, iconPath, iconIndex);
+}
+
+
+#ifndef UNDER_CE
+
+extern HINSTANCE g_hInstance;
+
+const wchar_t kApplyAllUsersAssociations[] = L"--apply-all-users-associations";
+
+static bool CanWriteAllUsersAssociations()
+{
+  NRegistry::CKey key;
+  return key.Open(HKEY_LOCAL_MACHINE, TEXT("Software\\Classes"),
+      KEY_SET_VALUE | KEY_CREATE_SUB_KEY) == ERROR_SUCCESS;
+}
+
+struct CAssociationChange
+{
+  UString Ext;
+  bool Associate;
+  UString IconPath;
+  int IconIndex;
+};
+
+LONG ApplyAllUsersAssociations(const UString &arguments)
+{
+  UStringVector requests;
+  SplitString(arguments, requests);
+  if (requests.IsEmpty())
+    return ERROR_INVALID_PARAMETER;
+
+  FString programFile;
+  if (!NDLL::MyGetModuleFileName(programFile))
+    return ERROR_FILE_NOT_FOUND;
+  const UString programPath = fs2us(programFile);
+
+  CCodecIcons programIcons;
+  programIcons.LoadIcons(g_hInstance);
+  CCodecIcons archiveIcons;
+  FString archiveFile = NDLL::GetModuleDirPrefix();
+  archiveFile += FTEXT("7z.dll");
+  {
+    // Load the bundled icons as data. The elevated command does not load codecs.
+    NDLL::CLibrary archiveResources;
+    if (archiveResources.LoadEx(archiveFile))
+      archiveIcons.LoadIcons(archiveResources.Get_HMODULE());
+  }
+
+  CObjectVector<CAssociationChange> changes;
+  FOR_VECTOR (i, requests)
+  {
+    const UString &request = requests[i];
+    if (request.Len() < 2 || (request[0] != L'+' && request[0] != L'-'))
+      return ERROR_INVALID_PARAMETER;
+    CAssociationChange &change = changes.AddNew();
+    change.Ext = request.Ptr(1);
+    change.Associate = request[0] == L'+';
+    for (unsigned j = 0; j < change.Ext.Len(); j++)
+    {
+      const wchar_t c = change.Ext[j];
+      if (!((c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z') || (c >= L'0' && c <= L'9')))
+        return ERROR_INVALID_PARAMETER;
+    }
+    if (archiveIcons.FindIconIndex(change.Ext, change.IconIndex))
+      change.IconPath = fs2us(archiveFile);
+    else if (programIcons.FindIconIndex(change.Ext, change.IconIndex))
+      change.IconPath = programPath;
+    else
+      return ERROR_INVALID_PARAMETER;
+  }
+
+  if (!CanWriteAllUsersAssociations())
+    return ERROR_ACCESS_DENIED;
+
+  const UString command = GetProgramCommand(programPath);
+  LONG result = ERROR_SUCCESS;
+  FOR_VECTOR (i, changes)
+  {
+    const CAssociationChange &change = changes[i];
+    result = SetAssociation(HKEY_LOCAL_MACHINE, change.Ext, change.Associate, command,
+        change.IconPath, change.IconIndex);
+    if (result != ERROR_SUCCESS)
+      break;
+  }
+  SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+  return result;
+}
+
+static LONG RunElevatedAssociationCommand(HWND owner, const UString &programPath,
+    const UString &changes)
+{
+  UString parameters = kApplyAllUsersAssociations;
+  parameters += changes;
+  const UString directory = fs2us(NDLL::GetModuleDirPrefix());
+  SHELLEXECUTEINFOW launch;
+  memset(&launch, 0, sizeof(launch));
+  launch.cbSize = sizeof(launch);
+  launch.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+  launch.hwnd = owner;
+  launch.lpVerb = L"runas";
+  launch.lpFile = programPath;
+  launch.lpParameters = parameters;
+  launch.lpDirectory = directory;
+  launch.nShow = SW_HIDE;
+  if (!::ShellExecuteExW(&launch))
+    return (LONG)::GetLastError();
+  if (!launch.hProcess)
+    return ERROR_INVALID_HANDLE;
+
+  CHandle process;
+  process.Attach(launch.hProcess);
+  if (::WaitForSingleObject(process, INFINITE) != WAIT_OBJECT_0)
+    return (LONG)::GetLastError();
+  DWORD result;
+  if (!::GetExitCodeProcess(process, &result))
+    return (LONG)::GetLastError();
+  return (LONG)result;
+}
+
+#endif
 
 
 LONG CSystemPage::OnApply()
@@ -280,58 +430,102 @@ LONG CSystemPage::OnApply()
   if (!_needSave)
     return PSNRET_NOERROR;
 
-  const UString command = GetProgramCommand();
-  
-  LONG res = 0;
+  FString programFile;
+  if (!NDLL::MyGetModuleFileName(programFile))
+  {
+    MessageBoxW(*this, NError::MyFormatMessage(ERROR_FILE_NOT_FOUND), UString(MY_PRODUCT_NAME), MB_ICONERROR);
+    return PSNRET_INVALID_NOCHANGEPAGE;
+  }
+  const UString programPath = fs2us(programFile);
+  const UString command = GetProgramCommand(programPath);
 
+  #ifndef UNDER_CE
+  UString allUsersChanges;
+  FOR_VECTOR (i, _items)
+  {
+    const CModifiedExtInfo &pending = _items[i].Pair[1];
+    if (pending.HasChange())
+    {
+      allUsersChanges.Add_Space();
+      allUsersChanges.Add_Char(pending.State == kExtState_7Zip ? L'+' : L'-');
+      allUsersChanges += _extDB.Exts[i].Ext;
+    }
+  }
+  const bool elevated = !allUsersChanges.IsEmpty() && !CanWriteAllUsersAssociations();
+  LONG elevatedResult = ERROR_SUCCESS;
+  if (elevated)
+  {
+    elevatedResult = RunElevatedAssociationCommand(GetParent(), programPath, allUsersChanges);
+    if (elevatedResult == ERROR_CANCELLED)
+      return PSNRET_INVALID_NOCHANGEPAGE;
+  }
+  #endif
+
+  LONG result = ERROR_SUCCESS;
+  bool applied = false;
+  _needSave = false;
   FOR_VECTOR (listIndex, _extDB.Exts)
   {
-    unsigned realIndex = GetRealIndex(listIndex);
+    const unsigned realIndex = GetRealIndex(listIndex);
     const CExtPlugins &extInfo = _extDB.Exts[realIndex];
+    const CPluginToIcon &plug = extInfo.Plugins[0];
     CAssoc &assoc = _items[realIndex];
-
     for (unsigned g = 0; g < NUM_EXT_GROUPS; g++)
     {
       CModifiedExtInfo &mi = assoc.Pair[g];
-      HKEY key = GetHKey(g);
-      
-      if (mi.OldState != mi.State)
+      if (!mi.HasChange())
+        continue;
+      const HKEY key = GetHKey(g);
+      const CSysString ext = GetSystemString(extInfo.Ext);
+      LONG itemResult;
+      #ifndef UNDER_CE
+      if (g == 1 && elevated)
       {
-        LONG res2 = 0;
-        
-        if (mi.State == kExtState_7Zip)
+        itemResult = elevatedResult;
+        if (itemResult != ERROR_SUCCESS)
         {
-          UString title = extInfo.Ext;
-          title += " Archive";
-          const CPluginToIcon &plug = extInfo.Plugins[0];
-          res2 = NRegistryAssoc::AddShellExtensionInfo(key, GetSystemString(extInfo.Ext),
-              title, command, plug.IconPath, plug.IconIndex);
+          // Some writes may already have completed. Keep only unapplied edits pending.
+          CModifiedExtInfo actual;
+          actual.ReadFromRegistry(key, ext);
+          actual.SetState(plug.IconPath);
+          if (actual.State == mi.State)
+            itemResult = ERROR_SUCCESS;
         }
-        else if (mi.State == kExtState_Clear)
-          res2 = NRegistryAssoc::DeleteShellExtensionInfo(key, GetSystemString(extInfo.Ext));
-        
-        if (res == 0)
-          res = res2;
-        if (res2 == 0)
-          mi.OldState = mi.State;
-        
-        mi.State = mi.OldState;
-        RefreshListItem(g, listIndex);
       }
+      else
+      #endif
+        itemResult = SetAssociation(key, extInfo.Ext, mi.State == kExtState_7Zip,
+            command, plug.IconPath, plug.IconIndex);
+
+      if (itemResult != ERROR_SUCCESS)
+      {
+        if (result == ERROR_SUCCESS)
+          result = itemResult;
+        _needSave = true;
+        continue;
+      }
+
+      mi.ReadFromRegistry(key, ext);
+      mi.SetState(plug.IconPath);
+      mi.ImageIndex = AddIcon(mi.IconPath, mi.IconIndex);
+      RefreshListItem(g, listIndex);
+      applied = true;
     }
   }
-  
-  #ifndef UNDER_CE
-  SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
-  #endif
 
-  WasChanged = true;
+  if (applied)
+  {
+    #ifndef UNDER_CE
+    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+    #endif
+    WasChanged = true;
+  }
 
-  _needSave = false;
-  
-  if (res != 0)
-    MessageBoxW(*this, NError::MyFormatMessage(res), L"7-Zip", MB_ICONERROR);
-  
+  if (result != ERROR_SUCCESS)
+  {
+    MessageBoxW(*this, NError::MyFormatMessage(result), UString(MY_PRODUCT_NAME), MB_ICONERROR);
+    return PSNRET_INVALID_NOCHANGEPAGE;
+  }
   return PSNRET_NOERROR;
 }
 
