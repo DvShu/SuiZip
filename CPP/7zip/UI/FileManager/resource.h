@@ -4,21 +4,8 @@
 #define IDM_MENU          71
 #define IDR_ACCELERATOR1  72
 
-#define IDB_ADD      100
-#define IDB_EXTRACT  101
-#define IDB_TEST     102
-#define IDB_COPY     103
-#define IDB_MOVE     104
-#define IDB_DELETE   105
-#define IDB_INFO     106
-
-#define IDB_ADD2     150
-#define IDB_EXTRACT2 151
-#define IDB_TEST2    152
-#define IDB_COPY2    153
-#define IDB_MOVE2    154
-#define IDB_DELETE2  155
-#define IDB_INFO2    156
+#define IDB_TOOLBAR_SMALL 100
+#define IDB_TOOLBAR_LARGE 150
 
 #define IDM_HASH_ALL             101
 #define IDM_CRC32                102

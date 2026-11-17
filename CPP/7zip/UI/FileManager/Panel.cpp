@@ -1,4 +1,5 @@
 // Panel.cpp
+// Modified 2026-11-16 for the fork: revise the file pane layout.
 
 #include "StdAfx.h"
 
@@ -26,6 +27,7 @@
 #include "App.h"
 #include "ExtractCallback.h"
 #include "FSFolder.h"
+#include "FileManagerStyle.h"
 #include "FormatUtils.h"
 #include "LangUtils.h"
 #include "Panel.h"
@@ -106,7 +108,7 @@ HRESULT CPanel::Create(HWND mainWindow, HWND parentWindow, UINT id,
   if (needOpenArc && !openRes.ArchiveIsOpened)
     return S_OK;
 
-  if (!CreateEx(0, kClassName, NULL, WS_CHILD | WS_VISIBLE,
+  if (!CreateEx(0, kClassName, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
       0, 0, _xSize, 260,
       parentWindow, (HMENU)(UINT_PTR)id, g_hInstance))
     return E_FAIL;
@@ -117,11 +119,72 @@ HRESULT CPanel::Create(HWND mainWindow, HWND parentWindow, UINT id,
 
 // extern UInt32 g_NumMessages;
 
+static const int kPaneFrameWidth = 1;
+
+static int GetAddressBarTop(int inset)
+{
+  return (g_App.ShowArchiveToolbar || g_App.ShowStandardToolbar) ? kPaneFrameWidth : inset;
+}
+
+#ifndef UNDER_CE
+static void StyleStatusBar(CStatusBar &statusBar)
+{
+  const HMODULE theme = ::GetModuleHandle(TEXT("uxtheme.dll"));
+  if (theme)
+  {
+    typedef HRESULT (WINAPI *SetWindowThemeFunc)(HWND, LPCWSTR, LPCWSTR);
+    const SetWindowThemeFunc setWindowTheme = Z7_GET_PROC_ADDRESS(SetWindowThemeFunc, theme, "SetWindowTheme");
+    if (setWindowTheme)
+      setWindowTheme(statusBar, L"", L"");
+  }
+  statusBar.SendMsg(SB_SETBKCOLOR, 0, ::GetSysColor(COLOR_WINDOW));
+}
+
+static void ClipControlEdges(HWND control, int top, int right, int bottom)
+{
+  RECT rect;
+  if (!::GetWindowRect(control, &rect))
+    return;
+  const int width = RECT_SIZE_X(rect);
+  const int height = RECT_SIZE_Y(rect);
+  if (width <= right || height <= top + bottom)
+    return;
+
+  HRGN region = ::CreateRectRgn(0, top, width - right, height - bottom);
+  if (region && !::SetWindowRgn(control, region, TRUE))
+    ::DeleteObject(region);
+}
+
+static void DrawControlFrame(HWND panel, HWND control, HDC dc, int clippedTop = 0)
+{
+  RECT rect;
+  if (!::GetWindowRect(control, &rect) || rect.left >= rect.right || rect.top >= rect.bottom)
+    return;
+  ::MapWindowPoints(NULL, panel, (POINT *)&rect, 2);
+  // Place the frame outside the visible control, including any clipped edge.
+  rect.top += clippedTop;
+  ::InflateRect(&rect, kPaneFrameWidth, kPaneFrameWidth);
+  ::FrameRect(dc, &rect, ::GetSysColorBrush(COLOR_3DSHADOW));
+}
+#endif
+
 LRESULT CPanel::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 {
   // g_NumMessages++;
   switch (message)
   {
+    #ifndef UNDER_CE
+    case WM_PAINT:
+    {
+      PAINTSTRUCT paint;
+      HDC dc = ::BeginPaint(*this, &paint);
+      DrawControlFrame(*this, _headerReBar, dc);
+      DrawControlFrame(*this, _listView, dc);
+      DrawControlFrame(*this, _statusBar, dc, kPaneFrameWidth);
+      ::EndPaint(*this, &paint);
+      return 0;
+    }
+    #endif
     case kShiftSelectMessage:
       OnShiftSelectMessage();
       return 0;
@@ -410,10 +473,7 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
     style |= LVS_OWNERDATA;
   */
 
-  DWORD exStyle;
-  exStyle = WS_EX_CLIENTEDGE;
-
-  if (!_listView.CreateEx(exStyle, style, 0, 0, 116, 260,
+  if (!_listView.CreateEx(0, style, 0, 0, 116, 260,
       *this, (HMENU)(UINT_PTR)(_baseID + 1), g_hInstance, NULL))
     return false;
 
@@ -461,14 +521,14 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
 
     _headerReBar.Attach(::CreateWindowEx(WS_EX_TOOLWINDOW,
       REBARCLASSNAME,
-      NULL, WS_VISIBLE | WS_BORDER | WS_CHILD |
+      NULL, WS_VISIBLE | WS_CHILD |
       WS_CLIPCHILDREN | WS_CLIPSIBLINGS
       | CCS_NODIVIDER
       | CCS_NOPARENTALIGN
       | CCS_TOP
       | RBS_VARHEIGHT
-      | RBS_BANDBORDERS
       ,0,0,0,0, *this, NULL, g_hInstance, NULL));
+    _headerReBar.SendMsg(RB_SETBKCOLOR, 0, ::GetSysColor(COLOR_WINDOW));
   }
 
   DWORD toolbarStyle =  WS_CHILD | WS_VISIBLE ;
@@ -482,6 +542,9 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
       | CCS_NODIVIDER
       | CCS_NORESIZE
       | TBSTYLE_FLAT
+      #ifndef UNDER_CE
+      | TBSTYLE_TRANSPARENT
+      #endif
       ;
   }
 
@@ -506,7 +569,7 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
       WC_COMBOBOXEXW
       #endif
       , NULL,
-    WS_BORDER | WS_VISIBLE |WS_CHILD | CBS_DROPDOWN | CBS_AUTOHSCROLL,
+    WS_VISIBLE | WS_CHILD | CBS_DROPDOWN | CBS_AUTOHSCROLL,
       0, 0, 100, 620,
       (_headerReBar ? _headerToolBar : (HWND)*this),
       (HMENU)(UINT_PTR)(_comboBoxID),
@@ -561,7 +624,7 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
     rbBand.cxMinChild = (UINT)size.cx;
     rbBand.cyMinChild = (UINT)size.cy;
     rbBand.cyChild = (UINT)size.cy;
-    rbBand.cx = (UINT)size.cx;
+    rbBand.cx = rbBand.cxMinChild;
     rbBand.hwndChild  = _headerToolBar;
     _headerReBar.InsertBand(-1, &rbBand);
 
@@ -575,18 +638,18 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
     // _headerReBar.MaximizeBand(1, false);
   }
 
-  _statusBar.Create(WS_CHILD | WS_VISIBLE, L"Status", (*this), _statusBarID);
-  // _statusBar2.Create(WS_CHILD | WS_VISIBLE, L"Status", (*this), _statusBarID + 1);
+  _statusBar.Create(WS_CHILD | WS_VISIBLE | CCS_NOPARENTALIGN
+      #ifndef UNDER_CE
+      | SBARS_TOOLTIPS
+      #endif
+      , L"", (*this), _statusBarID);
+  #ifndef UNDER_CE
+  StyleStatusBar(_statusBar);
+  #endif
 
-  const int sizes[] = {220, 320, 420, -1};
-  _statusBar.SetParts(4, sizes);
-  // _statusBar2.SetParts(5, sizes);
-
-  /*
   RECT rect;
   GetClientRect(&rect);
-  OnSize(0, RECT_SIZE_X(rect), RECT_SIZE_Y(rect));
-  */
+  ChangeWindowSize(RECT_SIZE_X(rect), RECT_SIZE_Y(rect));
 
   SetTimer(kTimerID, kTimerElapse);
 
@@ -604,41 +667,47 @@ void CPanel::OnDestroy()
 
 void CPanel::ChangeWindowSize(int xSize, int ySize)
 {
-  if (!(HWND)*this)
+  if (!(HWND)*this || !_listView || !_statusBar || !_headerToolBar)
     return;
-  int kHeaderSize;
-  int kStatusBarSize;
-  // int kStatusBar2Size;
-  RECT rect;
+
+  const int inset = NFileManagerStyle::Scale(*this, 10);
+  const int gap = NFileManagerStyle::Scale(*this, 8);
+  const int addressTop = GetAddressBarTop(inset);
+  const int width = MyMax(xSize - 2 * inset, 0);
+  RECT rect = {};
   if (_headerReBar)
     _headerReBar.GetWindowRect(&rect);
   else
     _headerToolBar.GetWindowRect(&rect);
-
-  kHeaderSize = RECT_SIZE_Y(rect);
+  const int listTop = addressTop + RECT_SIZE_Y(rect) + gap;
 
   _statusBar.GetWindowRect(&rect);
-  kStatusBarSize = RECT_SIZE_Y(rect);
-  
-  // _statusBar2.GetWindowRect(&rect);
-  // kStatusBar2Size = RECT_SIZE_Y(rect);
- 
-  int yListViewSize = MyMax(ySize - kHeaderSize - kStatusBarSize, 0);
-  const int kStartXPos = 32;
-  if (_headerReBar)
+  const int statusHeight = RECT_SIZE_Y(rect);
+  const int listHeight = MyMax(ySize - listTop - statusHeight - gap - inset, 0);
+
+  if (!_headerReBar)
   {
+    const int pathOffset = NFileManagerStyle::Scale(*this, 32);
+    _headerToolBar.Move(inset, addressTop, width, 0);
+    _headerComboBox.Move(inset + pathOffset, addressTop + 2, MyMax(width - pathOffset, 0), 0);
   }
+  #ifndef UNDER_CE
   else
   {
-    _headerToolBar.Move(0, 0, xSize, 0);
-    _headerComboBox.Move(kStartXPos, 2,
-        MyMax(xSize - kStartXPos - 10, kStartXPos), 0);
+    // Keep the combo's left edge as a divider inside the rebar's frame.
+    const int edgeY = ::GetSystemMetrics(SM_CYBORDER);
+    ClipControlEdges(_headerComboBox, edgeY, ::GetSystemMetrics(SM_CXBORDER), edgeY);
   }
-  _listView.Move(0, kHeaderSize, xSize, yListViewSize);
-  _statusBar.Move(0, kHeaderSize + yListViewSize, xSize, kStatusBarSize);
-  // _statusBar2.MoveWindow(0, kHeaderSize + yListViewSize + kStatusBarSize, xSize, kStatusBar2Size);
-  // _statusBar.MoveWindow(0, 100, xSize, kStatusBarSize);
-  // _statusBar2.MoveWindow(0, 200, xSize, kStatusBar2Size);
+  #endif
+
+  _listView.Move(inset, listTop, width, listHeight);
+  _statusBar.Move(inset, listTop + listHeight + gap, width, statusHeight);
+  #ifndef UNDER_CE
+  // Replace the native top line with the pane's single-pixel frame.
+  ClipControlEdges(_statusBar, kPaneFrameWidth, 0, 0);
+  #endif
+  LayoutStatusBar(width);
+  InvalidateRect(NULL);
 }
 
 bool CPanel::OnSize(WPARAM /* wParam */, int xSize, int ySize)
@@ -646,7 +715,10 @@ bool CPanel::OnSize(WPARAM /* wParam */, int xSize, int ySize)
   if (!(HWND)*this)
     return true;
   if (_headerReBar)
-    _headerReBar.Move(0, 0, xSize, 0);
+  {
+    const int inset = NFileManagerStyle::Scale(*this, 10);
+    _headerReBar.Move(inset, GetAddressBarTop(inset), MyMax(xSize - 2 * inset, 0), 0);
+  }
   ChangeWindowSize(xSize, ySize);
   return true;
 }

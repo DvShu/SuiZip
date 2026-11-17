@@ -1,4 +1,5 @@
 // PanelItems.cpp
+// Modified 2026-11-16 for the fork: widen default date and time columns.
 
 #include "StdAfx.h"
 
@@ -41,13 +42,13 @@ static bool GetColumnVisible(PROPID propID, bool isFsFolder)
   return true;
 }
 
-static unsigned GetColumnWidth(PROPID propID, VARTYPE /* varType */)
+static unsigned GetColumnWidth(PROPID propID, VARTYPE varType)
 {
   switch (propID)
   {
     case kpidName: return 160;
   }
-  return 100;
+  return varType == VT_FILETIME ? 164 : 100;
 }
 
 static int GetColumnAlign(PROPID propID, VARTYPE varType)

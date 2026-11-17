@@ -1,5 +1,5 @@
 // App.cpp
-// Modified 2026-11-16 for the fork: keep its name in the window title during navigation.
+// Modified 2026-11-16 for the fork: update the window title and toolbar.
 
 #include "StdAfx.h"
 
@@ -23,6 +23,7 @@
 #include "App.h"
 #include "CopyDialog.h"
 #include "ExtractCallback.h"
+#include "FileManagerStyle.h"
 #include "FormatUtils.h"
 #include "IFolder.h"
 #include "LangUtils.h"
@@ -155,11 +156,12 @@ static void CreateToolbar(HWND parent,
       | TBSTYLE_FLAT
       | TBSTYLE_TOOLTIPS
       | TBSTYLE_WRAPABLE
-      // | TBSTYLE_AUTOSIZE
-      // | CCS_NORESIZE
-      #ifdef UNDER_CE
       | CCS_NODIVIDER
+      #ifdef UNDER_CE
       | CCS_NOPARENTALIGN
+      #else
+      | TBSTYLE_LIST
+      | TBSTYLE_TRANSPARENT
       #endif
       ,0,0,0,0, parent, NULL, g_hInstance, NULL));
 
@@ -167,37 +169,49 @@ static void CreateToolbar(HWND parent,
   // backward compatibility.
   toolBar.ButtonStructSize();
 
-  imageList.Create(
-      largeButtons ? 48: 24,
-      largeButtons ? 36: 24,
-      ILC_MASK | ILC_COLOR32, 0, 0);
+  const int iconSize = largeButtons ? 32 : 24;
+  imageList.Create(iconSize, iconSize, ILC_MASK | ILC_COLOR32, 0, 0);
+  HBITMAP bitmap = ::LoadBitmap(g_hInstance,
+      MAKEINTRESOURCE(largeButtons ? IDB_TOOLBAR_LARGE : IDB_TOOLBAR_SMALL));
+  if (bitmap)
+  {
+    imageList.AddMasked(bitmap, RGB(255, 0, 255));
+    ::DeleteObject(bitmap);
+  }
   toolBar.SetImageList(0, imageList);
+
+  #ifndef UNDER_CE
+  const int inset = NFileManagerStyle::Scale(parent, 10);
+  toolBar.SendMsg(TB_SETINDENT, (WPARAM)inset, 0);
+  toolBar.SendMsg(TB_SETPADDING, 0, MAKELPARAM(2 * inset, inset + 4));
+  toolBar.SendMsg(TB_SETMAXTEXTROWS, 1, 0);
+  #endif
 }
 
 
 struct CButtonInfo
 {
   int CommandID;
-  UINT BitmapResID;
-  UINT Bitmap2ResID;
+  int ImageIndex;
   UINT StringResID;
 
   UString GetText() const { return LangString(StringResID); }
 };
 
-static const CButtonInfo g_StandardButtons[] =
-{
-  { IDM_COPY_TO,    IDB_COPY,   IDB_COPY2,   IDS_BUTTON_COPY },
-  { IDM_MOVE_TO,    IDB_MOVE,   IDB_MOVE2,   IDS_BUTTON_MOVE },
-  { IDM_DELETE,     IDB_DELETE, IDB_DELETE2, IDS_BUTTON_DELETE } ,
-  { IDM_PROPERTIES, IDB_INFO,   IDB_INFO2,   IDS_BUTTON_INFO }
-};
-
+// Image indices match both toolbar bitmap strips.
 static const CButtonInfo g_ArchiveButtons[] =
 {
-  { kMenuCmdID_Toolbar_Add,     IDB_ADD,     IDB_ADD2,     IDS_ADD },
-  { kMenuCmdID_Toolbar_Extract, IDB_EXTRACT, IDB_EXTRACT2, IDS_EXTRACT },
-  { kMenuCmdID_Toolbar_Test,    IDB_TEST,    IDB_TEST2,    IDS_TEST }
+  { kMenuCmdID_Toolbar_Add,     0, IDS_ADD },
+  { kMenuCmdID_Toolbar_Extract, 1, IDS_EXTRACT },
+  { kMenuCmdID_Toolbar_Test,    2, IDS_TEST }
+};
+
+static const CButtonInfo g_StandardButtons[] =
+{
+  { IDM_COPY_TO,    3, IDS_BUTTON_COPY },
+  { IDM_MOVE_TO,    4, IDS_BUTTON_MOVE },
+  { IDM_DELETE,     5, IDS_BUTTON_DELETE },
+  { IDM_PROPERTIES, 6, IDS_BUTTON_INFO }
 };
 
 static bool SetButtonText(int commandID, const CButtonInfo *buttons, unsigned numButtons, UString &s)
@@ -222,32 +236,18 @@ static void SetButtonText(int commandID, UString &s)
 }
 
 static void AddButton(
-    NControl::CImageList &imageList,
     NControl::CToolBar &toolBar,
-    const CButtonInfo &butInfo, bool showText, bool large)
+    const CButtonInfo &butInfo, bool showText)
 {
-  TBBUTTON but;
-  but.iBitmap = 0;
+  TBBUTTON but = {};
+  but.iBitmap = butInfo.ImageIndex;
   but.idCommand = butInfo.CommandID;
   but.fsState = TBSTATE_ENABLED;
-  but.fsStyle = TBSTYLE_BUTTON;
-  but.dwData = 0;
+  but.fsStyle = TBSTYLE_BUTTON | TBSTYLE_AUTOSIZE;
 
   UString s = butInfo.GetText();
-  but.iString = 0;
-  if (showText)
-    but.iString = (INT_PTR)(LPCWSTR)s;
+  but.iString = showText ? (INT_PTR)(LPCWSTR)s : -1;
 
-  but.iBitmap = imageList.GetImageCount();
-  HBITMAP b = ::LoadBitmap(g_hInstance,
-      large ?
-      MAKEINTRESOURCE(butInfo.BitmapResID):
-      MAKEINTRESOURCE(butInfo.Bitmap2ResID));
-  if (b)
-  {
-    imageList.AddMasked(b, RGB(255, 0, 255));
-    ::DeleteObject(b);
-  }
   #ifdef _UNICODE
   toolBar.AddButton(1, &but);
   #else
@@ -257,20 +257,19 @@ static void AddButton(
 
 void CApp::ReloadToolbars()
 {
-  _buttonsImageList.Destroy();
   _toolBar.Destroy();
-
+  _buttonsImageList.Destroy();
 
   if (ShowArchiveToolbar || ShowStandardToolbar)
   {
     CreateToolbar(_window, _buttonsImageList, _toolBar, LargeButtons);
-    unsigned i;
     if (ShowArchiveToolbar)
-      for (i = 0; i < Z7_ARRAY_SIZE(g_ArchiveButtons); i++)
-        AddButton(_buttonsImageList, _toolBar, g_ArchiveButtons[i], ShowButtonsLables, LargeButtons);
+      for (unsigned i = 0; i < Z7_ARRAY_SIZE(g_ArchiveButtons); i++)
+        AddButton(_toolBar, g_ArchiveButtons[i], ShowButtonsLables);
+
     if (ShowStandardToolbar)
-      for (i = 0; i < Z7_ARRAY_SIZE(g_StandardButtons); i++)
-        AddButton(_buttonsImageList, _toolBar, g_StandardButtons[i], ShowButtonsLables, LargeButtons);
+      for (unsigned i = 0; i < Z7_ARRAY_SIZE(g_StandardButtons); i++)
+        AddButton(_toolBar, g_StandardButtons[i], ShowButtonsLables);
 
     _toolBar.AutoSize();
   }

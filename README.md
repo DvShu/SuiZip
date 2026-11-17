@@ -22,6 +22,8 @@ The installer is written to `dist/SuiZip-<version>-x64-setup.exe`. Packaging use
 
 The SuiZip product version is set in [C/SuiZipVersion.h](C/SuiZipVersion.h). The 7-Zip source version used for binary compatibility is defined in [C/7zVersion.h](C/7zVersion.h).
 
+See the [release workflow](AGENTS.md#发布版本) for version bumps, Git tags, and adding the local installer to a GitHub Release.
+
 ## License and attribution
 
 7-Zip is copyright © 1999–2026 Igor Pavlov. Most of the source is licensed under the GNU LGPL version 2.1 or later. Some files are under the BSD 2-Clause or BSD 3-Clause licenses or are identified as public domain. The RAR decompression code is subject to the LGPL and the unRAR restriction against using it to recreate the RAR compression algorithm.

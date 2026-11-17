@@ -1,7 +1,11 @@
 // MyLoadMenu.cpp
-// Modified 2026-11-16 for the fork: use its name in the localized About menu.
+// Modified 2026-11-16 for the fork: style the menu bar and rename the About item.
 
 #include "StdAfx.h"
+
+#if defined(_UNICODE) && !defined(UNDER_CE)
+#include <oleacc.h>
+#endif
 
 #include "../../../Windows/FileDir.h"
 #include "../../../Windows/Menu.h"
@@ -16,6 +20,7 @@
 #include "AboutDialog.h"
 #include "App.h"
 #include "BrowseDialog2.h"
+#include "FileManagerStyle.h"
 #include "HelpUtils.h"
 #include "LangUtils.h"
 #include "MyLoadMenu.h"
@@ -49,7 +54,7 @@ enum
   k_MenuIndex_Bookmarks
 };
 
-#ifdef Z7_LANG
+#if defined(Z7_LANG) || (defined(_UNICODE) && !defined(UNDER_CE))
 static const UInt32 k_LangID_TopMenuItems[] =
 {
   IDM_FILE,
@@ -59,7 +64,9 @@ static const UInt32 k_LangID_TopMenuItems[] =
   IDM_TOOLS,
   IDM_HELP
 };
+#endif
 
+#ifdef Z7_LANG
 static const UInt32 k_LangID_Toolbars = IDM_VIEW_TOOLBARS;
 static const UInt32 k_LangID_AddToFavorites = IDM_ADD_TO_FAVORITES;
 
@@ -321,6 +328,187 @@ static void CopyMenu(HMENU srcMenuSpec, HMENU destMenuSpec)
 }
 
 
+#if defined(_UNICODE) && !defined(UNDER_CE)
+
+struct CMenuBarLabel
+{
+  MSAAMENUINFO Accessible;
+  UString Text;
+};
+
+static CMenuBarLabel g_MenuBarLabels[Z7_ARRAY_SIZE(k_LangID_TopMenuItems)];
+
+static void StyleMenuBar(HMENU handle)
+{
+  MENUINFO style = {};
+  style.cbSize = sizeof(style);
+  style.fMask = MIM_BACKGROUND;
+  style.hbrBack = ::GetSysColorBrush(COLOR_WINDOW);
+  ::SetMenuInfo(handle, &style);
+
+  CMenu menu;
+  menu.Attach(handle);
+  for (unsigned i = 0; i < Z7_ARRAY_SIZE(g_MenuBarLabels); i++)
+  {
+    CMenuItem item;
+    item.fMask = MIIM_STRING | MIIM_FTYPE | MIIM_SUBMENU;
+    if (!menu.GetItem(i, true, item) || !item.hSubMenu || item.StringValue.IsEmpty())
+      continue;
+
+    CMenuBarLabel &label = g_MenuBarLabels[i];
+    label.Text = item.StringValue;
+    label.Accessible.dwMSAASignature = MSAA_MENU_SIG;
+    label.Accessible.cchWText = label.Text.Len();
+    label.Accessible.pszWText = const_cast<LPWSTR>((LPCWSTR)label.Text);
+
+    item.fMask = MIIM_FTYPE | MIIM_DATA;
+    item.fType |= MFT_OWNERDRAW;
+    item.dwItemData = (ULONG_PTR)&label.Accessible;
+    menu.SetItem(i, true, item);
+  }
+}
+
+static const UString *GetMenuBarLabel(ULONG_PTR data)
+{
+  for (unsigned i = 0; i < Z7_ARRAY_SIZE(g_MenuBarLabels); i++)
+    if (data == (ULONG_PTR)&g_MenuBarLabels[i].Accessible)
+      return &g_MenuBarLabels[i].Text;
+  return NULL;
+}
+
+static HFONT CreateMenuBarFont()
+{
+  NONCLIENTMETRICSW metrics = {};
+  metrics.cbSize = sizeof(metrics);
+  if (::SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0))
+    return ::CreateFontIndirectW(&metrics.lfMenuFont);
+  return NULL;
+}
+
+static bool MeasureMenuBarItem(HWND window, MEASUREITEMSTRUCT &item)
+{
+  const UString *label = GetMenuBarLabel(item.itemData);
+  if (item.CtlType != ODT_MENU || !label)
+    return false;
+
+  HDC dc = ::GetDC(window);
+  if (!dc)
+    return false;
+  HFONT font = CreateMenuBarFont();
+  HGDIOBJ oldFont = ::SelectObject(dc, font ? font : ::GetStockObject(DEFAULT_GUI_FONT));
+  RECT text = {};
+  ::DrawTextW(dc, *label, (int)label->Len(), &text, DT_CALCRECT | DT_SINGLELINE);
+  ::SelectObject(dc, oldFont);
+  if (font)
+    ::DeleteObject(font);
+  ::ReleaseDC(window, dc);
+
+  item.itemWidth = (UINT)(text.right + NFileManagerStyle::Scale(window, 12));
+  item.itemHeight = (UINT)MyMax((int)text.bottom + NFileManagerStyle::Scale(window, 10),
+      NFileManagerStyle::Scale(window, 28));
+  return true;
+}
+
+static bool DrawMenuBarItem(HWND window, const DRAWITEMSTRUCT &item)
+{
+  const UString *label = GetMenuBarLabel(item.itemData);
+  if (item.CtlType != ODT_MENU || !label)
+    return false;
+
+  const int saved = ::SaveDC(item.hDC);
+  if (!saved)
+    return false;
+  const bool selected = (item.itemState & ODS_SELECTED) != 0;
+  const bool hot = (item.itemState & ODS_HOTLIGHT) != 0;
+  const bool disabled = (item.itemState & (ODS_DISABLED | ODS_GRAYED)) != 0;
+  HIGHCONTRASTW contrast = {};
+  contrast.cbSize = sizeof(contrast);
+  const bool highContrast = ::SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0)
+      && (contrast.dwFlags & HCF_HIGHCONTRASTON) != 0;
+
+  ::FillRect(item.hDC, &item.rcItem, ::GetSysColorBrush(COLOR_WINDOW));
+  int textColor = disabled ? COLOR_GRAYTEXT : COLOR_WINDOWTEXT;
+  if (selected || hot)
+  {
+    if (highContrast)
+    {
+      ::FillRect(item.hDC, &item.rcItem, ::GetSysColorBrush(COLOR_HIGHLIGHT));
+      textColor = COLOR_HIGHLIGHTTEXT;
+    }
+    else
+    {
+      const int inset = NFileManagerStyle::Scale(window, 2);
+      RECT highlight = item.rcItem;
+      ::InflateRect(&highlight, -inset, -inset);
+      ::SetDCBrushColor(item.hDC, NFileManagerStyle::TintWithAccent(
+          ::GetSysColor(COLOR_WINDOW), selected ? 20 : 11));
+      ::FillRect(item.hDC, &highlight, (HBRUSH)::GetStockObject(DC_BRUSH));
+    }
+  }
+
+  HFONT font = CreateMenuBarFont();
+  ::SelectObject(item.hDC, font ? font : ::GetStockObject(DEFAULT_GUI_FONT));
+  ::SetBkMode(item.hDC, TRANSPARENT);
+  ::SetTextColor(item.hDC, ::GetSysColor(textColor));
+  RECT text = item.rcItem;
+  UINT format = DT_CENTER | DT_VCENTER | DT_SINGLELINE;
+  unsigned length = label->Len();
+  if (item.itemState & ODS_NOACCEL)
+  {
+    format |= DT_HIDEPREFIX;
+    // Localized labels can use a trailing "(&X)" for the mnemonic.
+    if (length >= 4 && (*label)[length - 4] == L'('
+        && (*label)[length - 3] == L'&' && label->Back() == L')')
+      length -= 4;
+  }
+  ::DrawTextW(item.hDC, *label, (int)length, &text, format);
+  ::RestoreDC(item.hDC, saved);
+  if (font)
+    ::DeleteObject(font);
+  return true;
+}
+
+bool HandleMenuBarMessage(HWND window, UINT message, WPARAM wParam, LPARAM lParam, LRESULT &result)
+{
+  switch (message)
+  {
+    case WM_MEASUREITEM:
+      result = TRUE;
+      return MeasureMenuBarItem(window, *(MEASUREITEMSTRUCT *)lParam);
+    case WM_DRAWITEM:
+      result = TRUE;
+      return DrawMenuBarItem(window, *(const DRAWITEMSTRUCT *)lParam);
+    case WM_MENUCHAR:
+    {
+      if ((HMENU)lParam != ::GetMenu(window))
+        break;
+      const wchar_t key = (wchar_t)LOWORD(wParam);
+      for (unsigned i = 0; i < Z7_ARRAY_SIZE(g_MenuBarLabels); i++)
+      {
+        const UString &text = g_MenuBarLabels[i].Text;
+        for (unsigned j = 0; j + 1 < text.Len(); j++)
+        {
+          if (text[j] != L'&')
+            continue;
+          if (text[++j] == L'&')
+            continue;
+          if (::CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, &key, 1,
+              (LPCWSTR)text + j, 1) == CSTR_EQUAL)
+          {
+            result = MAKELRESULT(i, MNC_EXECUTE);
+            return true;
+          }
+        }
+      }
+      break;
+    }
+  }
+  return false;
+}
+
+#endif
+
+
 /* use for (needResetMenu):
     false : for call from program window creation code
     true  : for another calls : (from Options language change)
@@ -357,8 +545,14 @@ void MyLoadMenu(bool needResetMenu)
     const HMENU oldMenu = ::GetMenu(hWnd);
     const HMENU newMenu = ::LoadMenu(g_hInstance, MAKEINTRESOURCE(IDM_MENU));
     // docs for SetMenu(): the window is redrawn to reflect the menu change.
-    if (newMenu && ::SetMenu(hWnd, newMenu))
-      ::DestroyMenu(oldMenu);
+    if (!newMenu)
+      return;
+    if (!::SetMenu(hWnd, newMenu))
+    {
+      ::DestroyMenu(newMenu);
+      return;
+    }
+    ::DestroyMenu(oldMenu);
     menuWasChanged = true;
   }
   const HMENU baseMenu = ::GetMenu(hWnd);
@@ -370,6 +564,11 @@ void MyLoadMenu(bool needResetMenu)
     MyChangeMenu(baseMenu, 0, 0, 0);
     menuWasChanged = true;
   }
+  #endif
+
+  #ifdef _UNICODE
+  StyleMenuBar(baseMenu);
+  menuWasChanged = true;
   #endif
 
   if (menuWasChanged)

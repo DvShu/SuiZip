@@ -1,5 +1,5 @@
 // FM.cpp
-// Modified 2026-11-16 for the fork: renamed the file manager window.
+// Modified 2026-11-16 for the fork: update the window name, background and menu bar.
 
 #include "StdAfx.h"
 
@@ -273,8 +273,7 @@ static BOOL InitInstance(int nCmdShow)
 
   // wc.hCursor = LoadCursor (NULL, IDC_ARROW);
   wc.hCursor = ::LoadCursor(NULL, IDC_SIZEWE);
-  // wc.hbrBackground = (HBRUSH) GetStockObject(WHITE_BRUSH);
-  wc.hbrBackground = (HBRUSH) (COLOR_BTNFACE + 1);
+  wc.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
 
   wc.lpszMenuName =
     #ifdef UNDER_CE
@@ -899,6 +898,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
   switch (message)
   {
+    #if defined(_UNICODE) && !defined(UNDER_CE)
+    case WM_MEASUREITEM:
+    case WM_DRAWITEM:
+    case WM_MENUCHAR:
+    {
+      LRESULT result;
+      if (HandleMenuBarMessage(hWnd, message, wParam, lParam, result))
+        return result;
+      break;
+    }
+    #endif
+
     case WM_COMMAND:
     {
       unsigned wmId    = LOWORD(wParam);

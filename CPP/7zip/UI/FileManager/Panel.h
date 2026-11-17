@@ -1,4 +1,5 @@
 // Panel.h
+// Modified 2026-11-16 for the fork: enable buffered list redraws.
 
 #ifndef ZIP7_INC_PANEL_H
 #define ZIP7_INC_PANEL_H
@@ -371,6 +372,7 @@ public:
 private:
   int _startGroupSelect;
   int _prevFocusedItem;
+  int _statusLeadingWidths[2];
 
   CAppState *_appState;
 
@@ -409,6 +411,7 @@ private:
 
 
   void ChangeWindowSize(int xSize, int ySize);
+  void LayoutStatusBar(int width);
   HRESULT InitColumns();
   void DeleteColumn(unsigned index);
   void AddColumn(const CPropColumn &prop);
@@ -620,6 +623,7 @@ public:
       _listViewMode(3),
       _xSize(300),
       _startGroupSelect(0),
+      _statusLeadingWidths(),
       m_DropHighlighted_SelectionIndex(-1)
   {}
 
@@ -630,7 +634,13 @@ public:
   void SetExtendedStyle()
   {
     if (_listView)
-      _listView.SetExtendedListViewStyle(_exStyle);
+    {
+      DWORD style = _exStyle;
+      #ifdef LVS_EX_DOUBLEBUFFER
+      style |= LVS_EX_DOUBLEBUFFER;
+      #endif
+      _listView.SetExtendedListViewStyle(style);
+    }
   }
 
   void SetSortRawStatus();

@@ -10,6 +10,10 @@ void OnMenuActivating(HWND hWnd, HMENU hMenu, int position);
 bool OnMenuCommand(HWND hWnd, unsigned id);
 void MyLoadMenu(bool needResetMenu);
 
+#if defined(_UNICODE) && !defined(UNDER_CE)
+bool HandleMenuBarMessage(HWND window, UINT message, WPARAM wParam, LPARAM lParam, LRESULT &result);
+#endif
+
 struct CFileMenu
 {
   bool programMenu;

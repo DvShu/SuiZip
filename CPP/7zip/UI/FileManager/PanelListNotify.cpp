@@ -1,8 +1,10 @@
 // PanelListNotify.cpp
+// Modified 2026-11-17 for the fork: style file rows and format sizes in the list and status bar.
 
 #include "StdAfx.h"
 
 #include "resource.h"
+#include "PropertyNameRes.h"
 
 #include "../../../Common/IntToString.h"
 #include "../../../Common/StringConvert.h"
@@ -14,8 +16,10 @@
 #include "../../PropID.h"
 
 #include "App.h"
-#include "Panel.h"
+#include "FileManagerStyle.h"
 #include "FormatUtils.h"
+#include "LangUtils.h"
+#include "Panel.h"
 
 using namespace NWindows;
 
@@ -92,27 +96,47 @@ UString ConvertSizeToString(UInt64 value)
   return s;
 }
 
-bool IsSizeProp(UINT propID) throw();
-bool IsSizeProp(UINT propID) throw()
+static void FormatByteSize(UInt64 bytes, wchar_t *text) throw()
+{
+  static const wchar_t * const units[] = {L"B", L"KB", L"MB", L"GB", L"TB"};
+  const UInt64 unitFactor = 1024;
+  UInt64 divisor = 1;
+  unsigned unit = 0;
+  while (unit + 1 < Z7_ARRAY_SIZE(units) && bytes >= divisor * unitFactor)
+  {
+    divisor *= unitFactor;
+    unit++;
+  }
+
+  ConvertSizeToString(bytes / divisor, text);
+  while (*text)
+    text++;
+
+  // Truncate to hundredths to avoid rounding up at the next unit boundary.
+  const unsigned fraction = (unsigned)((bytes % divisor) * 100 / divisor);
+  if (fraction != 0)
+  {
+    *text++ = L'.';
+    *text++ = (wchar_t)(L'0' + fraction / 10);
+    if (fraction % 10 != 0)
+      *text++ = (wchar_t)(L'0' + fraction % 10);
+  }
+
+  *text++ = L' ';
+  MyStringCopy(text, units[unit]);
+}
+
+static bool IsByteSizeProp(UINT propID) throw()
 {
   switch (propID)
   {
     case kpidSize:
     case kpidPackSize:
-    case kpidNumSubDirs:
-    case kpidNumSubFiles:
-    case kpidOffset:
-    case kpidLinks:
-    case kpidNumBlocks:
-    case kpidNumVolumes:
     case kpidPhySize:
     case kpidHeadersSize:
     case kpidTotalSize:
     case kpidFreeSpace:
     case kpidClusterSize:
-    case kpidNumErrors:
-    case kpidNumStreams:
-    case kpidNumAltStreams:
     case kpidAltStreamsSize:
     case kpidVirtualSize:
     case kpidUnpackSize:
@@ -124,6 +148,24 @@ bool IsSizeProp(UINT propID) throw()
   return false;
 }
 
+bool IsSizeProp(UINT propID) throw();
+bool IsSizeProp(UINT propID) throw()
+{
+  switch (propID)
+  {
+    case kpidNumSubDirs:
+    case kpidNumSubFiles:
+    case kpidOffset:
+    case kpidLinks:
+    case kpidNumBlocks:
+    case kpidNumVolumes:
+    case kpidNumErrors:
+    case kpidNumStreams:
+    case kpidNumAltStreams:
+      return true;
+  }
+  return IsByteSizeProp(propID);
+}
 
 
 /*
@@ -481,11 +523,15 @@ LRESULT CPanel::SetItemText(LVITEMW &item)
     MyStringCopy(text, L"Error: ");
     // s = UString("Error: ") + HResultToMessage(res);
   }
-  else if ((prop.vt == VT_UI8 || prop.vt == VT_UI4 || prop.vt == VT_UI2) && IsSizeProp(propID))
+  else if ((prop.vt == VT_UI8 || prop.vt == VT_UI4 || prop.vt == VT_UI2 || prop.vt == VT_UI1)
+      && IsSizeProp(propID))
   {
     UInt64 v = 0;
     ConvertPropVariantToUInt64(prop, v);
-    ConvertSizeToString(v, text);
+    if (IsByteSizeProp(propID))
+      FormatByteSize(v, text);
+    else
+      ConvertSizeToString(v, text);
   }
   else if (prop.vt == VT_BSTR)
   {
@@ -673,11 +719,7 @@ bool CPanel::OnNotifyList(LPNMHDR header, LRESULT &result)
       return true;
 
     case NM_CUSTOMDRAW:
-    {
-      if (_mySelectMode || (_markDeletedItems && _thereAreDeletedItems))
-        return OnCustomDraw((LPNMLVCUSTOMDRAW)header, result);
-      break;
-    }
+      return OnCustomDraw((LPNMLVCUSTOMDRAW)header, result);
     case LVN_BEGINDRAG:
     {
       OnDrag((LPNMLISTVIEW)header, false);
@@ -697,142 +739,148 @@ bool CPanel::OnNotifyList(LPNMHDR header, LRESULT &result)
 
 bool CPanel::OnCustomDraw(LPNMLVCUSTOMDRAW lplvcd, LRESULT &result)
 {
-  switch (lplvcd->nmcd.dwDrawStage)
+  const NMCUSTOMDRAW &item = lplvcd->nmcd;
+  const bool details = (_listView.GetStyle() & LVS_TYPEMASK) == LVS_REPORT;
+  if (item.dwDrawStage == CDDS_PREPAINT)
   {
-  case CDDS_PREPAINT :
-    result = CDRF_NOTIFYITEMDRAW;
+    result = (details || _mySelectMode || (_markDeletedItems && _thereAreDeletedItems))
+        ? CDRF_NOTIFYITEMDRAW : CDRF_DODEFAULT;
     return true;
-    
-  case CDDS_ITEMPREPAINT:
-    /*
-    SelectObject(lplvcd->nmcd.hdc,
-    GetFontForItem(lplvcd->nmcd.dwItemSpec,
-    lplvcd->nmcd.lItemlParam) );
-    lplvcd->clrText = GetColorForItem(lplvcd->nmcd.dwItemSpec,
-    lplvcd->nmcd.lItemlParam);
-    lplvcd->clrTextBk = GetBkColorForItem(lplvcd->nmcd.dwItemSpec,
-    lplvcd->nmcd.lItemlParam);
-    */
-    const unsigned realIndex = (unsigned)lplvcd->nmcd.lItemlParam;
-    lplvcd->clrTextBk = _listView.GetBkColor();
-    if (_mySelectMode)
-    {
-      if (realIndex != kParentIndex && _selectedStatusVector[realIndex])
-       lplvcd->clrTextBk = RGB(255, 192, 192);
-    }
-
-    if (_markDeletedItems && _thereAreDeletedItems)
-    {
-      if (IsItem_Deleted(realIndex))
-        lplvcd->clrText = RGB(255, 0, 0);
-    }
-    // lplvcd->clrText = RGB(0, 0, 0);
-    // result = CDRF_NEWFONT;
-    result = CDRF_NOTIFYITEMDRAW;
-    return true;
-    
-    // return false;
-    // return true;
-    /*
-    case CDDS_SUBITEM | CDDS_ITEMPREPAINT:
-    if (lplvcd->iSubItem == 0)
-    {
-    // lplvcd->clrText = RGB(255, 0, 0);
-    lplvcd->clrTextBk = RGB(192, 192, 192);
-    }
-    else
-    {
-    lplvcd->clrText = RGB(0, 0, 0);
-    lplvcd->clrTextBk = RGB(255, 255, 255);
-    }
-    return true;
-    */
-
-        /* At this point, you can change the background colors for the item
-        and any subitems and return CDRF_NEWFONT. If the list-view control
-        is in report mode, you can simply return CDRF_NOTIFYSUBITEMREDRAW
-        to customize the item's subitems individually */
   }
-  return false;
+
+  if (item.dwDrawStage != CDDS_ITEMPREPAINT)
+    return false;
+
+  const unsigned realIndex = (unsigned)item.lItemlParam;
+  const bool marked = _mySelectMode && realIndex != kParentIndex
+      && realIndex < _selectedStatusVector.Size() && _selectedStatusVector[realIndex];
+  const bool striped = details && (item.dwItemSpec & 1) != 0
+      && (item.uItemState & CDIS_SELECTED) == 0;
+
+  result = CDRF_DODEFAULT;
+  if (marked || striped)
+  {
+    const COLORREF background = _listView.GetBkColor();
+    lplvcd->clrTextBk = marked
+        ? NFileManagerStyle::TintWithAccent(background, 22)
+        : NFileManagerStyle::BlendColors(background, ::GetSysColor(COLOR_WINDOWTEXT), 4);
+    result = CDRF_NEWFONT;
+  }
+  if (_markDeletedItems && _thereAreDeletedItems && IsItem_Deleted(realIndex))
+  {
+    lplvcd->clrText = RGB(255, 0, 0);
+    result = CDRF_NEWFONT;
+  }
+  return true;
+}
+
+void CPanel::LayoutStatusBar(int width)
+{
+  const int countEnd = MyMin(_statusLeadingWidths[0], width);
+  const int sizeEnd = countEnd + MyMin(_statusLeadingWidths[1], width - countEnd);
+  const int edges[] = {countEnd, sizeEnd, -1};
+  _statusBar.SetParts(Z7_ARRAY_SIZE(edges), edges);
+}
+
+static UString FormatStatusSize(UINT label, UInt64 bytes)
+{
+  wchar_t size[32];
+  FormatByteSize(bytes, size);
+  UString text = LangString(label);
+  text.Add_Space();
+  text += size;
+  return text;
 }
 
 void CPanel::Refresh_StatusBar()
 {
-  /*
-  g_name_cnt++;
-  char s[256];
-  sprintf(s, "g_name_cnt = %8d", g_name_cnt);
-  OutputDebugStringA(s);
-  */
-  // DWORD dw = GetTickCount();
-
+  if (!_statusBar)
+    return;
   CRecordVector<UInt32> indices;
   Get_ItemIndices_Operated(indices);
 
-  {
-    UString s;
-    s.Add_UInt32(indices.Size());
-    s += " / ";
-    s.Add_UInt32(_selectedStatusVector.Size());
+  UString count;
+  count.Add_UInt32(indices.Size());
+  count += " / ";
+  count.Add_UInt32(_selectedStatusVector.Size());
 
-    // UString s1 = MyFormatNew(g_App.LangString_N_SELECTED_ITEMS, NumberToString(indices.Size()));
-    // UString s1 = MyFormatNew(IDS_N_SELECTED_ITEMS, NumberToString(indices.Size()));
-    _statusBar.SetText(0, MyFormatNew(g_App.LangString_N_SELECTED_ITEMS, s));
-    // _statusBar.SetText(0, MyFormatNew(IDS_N_SELECTED_ITEMS, NumberToString(indices.Size())));
-  }
+  UString parts[3];
+  parts[0] = L"  ";
+  parts[0] += MyFormatNew(g_App.LangString_N_SELECTED_ITEMS, count);
 
+  if (!indices.IsEmpty())
   {
-    wchar_t selectSizeString[32];
-    selectSizeString[0] = 0;
-    
-    if (!indices.IsEmpty())
-    {
-      // for (unsigned ttt = 0; ttt < 1000; ttt++) {
-      UInt64 totalSize = 0;
-      FOR_VECTOR (i, indices)
-        totalSize += GetItemSize(indices[i]);
-      ConvertSizeToString(totalSize, selectSizeString);
-      // }
-    }
-    _statusBar.SetText(1, selectSizeString);
+    UInt64 totalSize = 0;
+    FOR_VECTOR (i, indices)
+      totalSize += GetItemSize(indices[i]);
+    parts[1] = FormatStatusSize(IDS_PROP_TOTAL_SIZE, totalSize);
   }
 
   const int focusedItem = _listView.GetFocusedItem();
-  wchar_t sizeString[32];
-  sizeString[0] = 0;
-  wchar_t dateString[32];
-  dateString[0] = 0;
   if (focusedItem >= 0 && _listView.GetSelectedCount() > 0)
   {
     const unsigned realIndex = GetRealItemIndex(focusedItem);
     if (realIndex != kParentIndex)
     {
-      ConvertSizeToString(GetItemSize(realIndex), sizeString);
+      // A single selected item already has its size in the total.
+      if (indices.Size() != 1 || indices[0] != realIndex)
+      {
+        parts[2] = FormatStatusSize(IDS_PROP_SIZE, GetItemSize(realIndex));
+        const UString name = GetItemName(realIndex);
+        if (!name.IsEmpty())
+        {
+          parts[2] += L" (";
+          parts[2] += name;
+          parts[2] += L')';
+        }
+      }
+
       NCOM::CPropVariant prop;
       if (_folder->GetProperty(realIndex, kpidMTime, &prop) == S_OK)
       {
-        char dateString2[64];
-        dateString2[0] = 0;
-        ConvertPropertyToShortString2(dateString2, prop, kpidMTime);
-        for (unsigned i = 0;; i++)
+        char date[64] = {};
+        ConvertPropertyToShortString2(date, prop, kpidMTime);
+        if (date[0])
         {
-          char c = dateString2[i];
-          dateString[i] = (Byte)c;
-          if (c == 0)
-            break;
+          if (!parts[2].IsEmpty())
+            parts[2] += L"  \x00B7  ";
+          parts[2] += LangString(IDS_PROP_MTIME);
+          parts[2].Add_Space();
+          parts[2] += date;
         }
       }
     }
   }
-  _statusBar.SetText(2, sizeString);
-  _statusBar.SetText(3, dateString);
-  
-  // _statusBar.SetText(4, nameString);
-  // _statusBar2.SetText(1, MyFormatNew(L"{0} bytes", NumberToStringW(totalSize)));
-  // }
-  /*
-  dw = GetTickCount() - dw;
-  sprintf(s, "status = %8d ms", dw);
-  OutputDebugStringA(s);
-  */
+
+  const HDC dc = ::GetDC(_statusBar);
+  const HGDIOBJ font = (HGDIOBJ)_statusBar.SendMsg(WM_GETFONT, 0, 0);
+  const HGDIOBJ oldFont = dc && font ? ::SelectObject(dc, font) : NULL;
+  const int spacing = NFileManagerStyle::Scale(*this, 14);
+  for (unsigned i = 0; i < Z7_ARRAY_SIZE(_statusLeadingWidths); i++)
+  {
+    SIZE size = {};
+    if (dc && !parts[i].IsEmpty())
+    {
+      const CSysString text = GetSystemString(parts[i]);
+      ::GetTextExtentPoint32(dc, text, (int)text.Len(), &size);
+    }
+    _statusLeadingWidths[i] = parts[i].IsEmpty() ? 0 : size.cx + spacing;
+  }
+  if (oldFont)
+    ::SelectObject(dc, oldFont);
+  if (dc)
+    ::ReleaseDC(_statusBar, dc);
+
+  RECT barRect;
+  if (_statusBar.GetClientRect(&barRect))
+    LayoutStatusBar(RECT_SIZE_X(barRect));
+
+  for (unsigned i = 0; i < Z7_ARRAY_SIZE(parts); i++)
+  {
+    _statusBar.SetText(i, parts[i], SBT_NOBORDERS);
+    #ifndef UNDER_CE
+    const CSysString tooltipText = GetSystemString(parts[i]);
+    _statusBar.SendMsg(SB_SETTIPTEXT, i, (LPARAM)(LPCTSTR)tooltipText);
+    #endif
+  }
 }
