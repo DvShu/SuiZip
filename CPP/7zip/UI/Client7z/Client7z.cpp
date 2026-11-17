@@ -15,7 +15,6 @@
 #include "../../../Windows/FileDir.h"
 #include "../../../Windows/FileFind.h"
 #include "../../../Windows/FileName.h"
-#include "../../../Windows/NtCheck.h"
 #include "../../../Windows/PropVariant.h"
 #include "../../../Windows/PropVariantConv.h"
 
@@ -814,13 +813,9 @@ Z7_COM7F_IMF(CArchiveUpdateCallback::CryptoGetTextPassword2(Int32 *passwordIsDef
 
 // Main function
 
-#if defined(_UNICODE) && !defined(_WIN64) && !defined(UNDER_CE)
-#define NT_CHECK_FAIL_ACTION PrintError("Unsupported Windows version"); return 1;
-#endif
 
 int Z7_CDECL main(int numArgs, const char *args[])
 {
-  NT_CHECK
 
   #ifdef ENV_HAVE_LOCALE
   MY_SetLocale();

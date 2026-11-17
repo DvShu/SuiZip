@@ -6,15 +6,6 @@ const int kInfoPanelLineSize = 80;
 
 // #define __FAR_PLUGIN_H
 
-#ifdef UNDER_CE
-typedef struct {
-    union {
-        WCHAR UnicodeChar;
-        CHAR   AsciiChar;
-    } Char;
-    WORD Attributes;
-} CHAR_INFO, *PCHAR_INFO;
-#endif
 
 #ifndef ZIP7_INC_FAR_PLUGIN_H
 #define ZIP7_INC_FAR_PLUGIN_H

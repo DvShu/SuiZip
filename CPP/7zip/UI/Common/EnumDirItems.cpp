@@ -17,7 +17,7 @@
 #include "../../../Windows/FileIO.h"
 #include "../../../Windows/FileName.h"
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 #define Z7_USE_SECURITY_CODE
 #include "../../../Windows/SecurityUtils.h"
 #endif
@@ -512,7 +512,6 @@ static HRESULT EnumerateDirItems_Spec(
 }
 
 
-#ifndef UNDER_CE
 
 #ifdef _WIN32
 
@@ -594,7 +593,6 @@ HRESULT CDirItems::SetLinkInfo(CDirItem &dirItem, const NFind::CFileInfo &fi,
   return AddError(path, res);
 }
 
-#endif // UNDER_CE
 
 
 
@@ -614,24 +612,20 @@ static HRESULT EnumerateForItem(
   if (curNode.CheckPathToRoot(false, newParts, !fi.IsDir()))
     return S_OK;
 
-  #if !defined(UNDER_CE)
   int dirItemIndex = -1;
   #if defined(_WIN32)
   bool addAllSubStreams = false;
   bool needAltStreams = true;
   #endif // _WIN32
-  #endif // !defined(UNDER_CE)
 
   // check the path in inlcude rules
   if (curNode.CheckPathToRoot(true, newParts, !fi.IsDir()))
   {
-    #if !defined(UNDER_CE)
     // dirItemIndex = (int)dirItems.Items.Size();
     #if defined(_WIN32)
     // we will not check include rules for substreams.
     addAllSubStreams = true;
     #endif // _WIN32
-    #endif // !defined(UNDER_CE)
 
     if (dirItems.CanIncludeItem(fi.IsDir()))
     {
@@ -642,14 +636,12 @@ static HRESULT EnumerateForItem(
         RINOK(dirItems.AddSecurityItem(phyPrefix + fi.Name, secureIndex))
       }
     #endif
-    #if !defined(UNDER_CE)
       dirItemIndex = (int)dirItems.Items.Size();
-    #endif // !defined(UNDER_CE)
       dirItems.AddDirFileInfo(phyParent, logParent, secureIndex, fi);
     }
     else
     {
-      #if defined(_WIN32) && !defined(UNDER_CE)
+      #if defined(_WIN32)
         needAltStreams = false;
       #endif
     }
@@ -658,7 +650,6 @@ static HRESULT EnumerateForItem(
       enterToSubFolders = true;
   }
 
-  #if !defined(UNDER_CE)
   
   // we don't scan AltStreams for link files
 
@@ -681,7 +672,6 @@ static HRESULT EnumerateForItem(
   }
   #endif
 
-  #endif // !defined(UNDER_CE)
 
 
   #ifndef _WIN32
@@ -768,7 +758,7 @@ static bool CanUseFsDirect(const NWildcard::CCensorNode &curNode)
 }
 
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 
 static bool IsVirtualFsFolder(const FString &prefix, const UString &name)
 {
@@ -825,7 +815,7 @@ static HRESULT EnumerateDirItems(
         }
         */
 
-        #if defined(_WIN32) && !defined(UNDER_CE)
+        #if defined(_WIN32)
         bool needAltStreams = true;
         #endif
 
@@ -843,7 +833,7 @@ static HRESULT EnumerateDirItems(
                So we ignore alt streams for these cases */
             if (name.IsEmpty())
             {
-              #if defined(_WIN32) && !defined(UNDER_CE)
+              #if defined(_WIN32)
               needAltStreams = false;
               #endif
 
@@ -856,7 +846,7 @@ static HRESULT EnumerateDirItems(
 
               fullPath = CHAR_PATH_SEPARATOR;
             }
-            #if defined(_WIN32) && !defined(UNDER_CE)
+            #if defined(_WIN32)
             else if (item.IsDriveItem())
             {
               needAltStreams = false;
@@ -867,7 +857,7 @@ static HRESULT EnumerateDirItems(
         }
 
         NFind::CFileInfo fi;
-        #if defined(_WIN32) && !defined(UNDER_CE)
+        #if defined(_WIN32)
         if (IsVirtualFsFolder(phyPrefix, name))
         {
           fi.SetAsDir();
@@ -920,7 +910,6 @@ static HRESULT EnumerateDirItems(
 
         // we don't scan AltStreams for link files
 
-        #if !defined(UNDER_CE)
         {
           CDirItem &dirItem = dirItems.Items.Back();
           RINOK(dirItems.SetLinkInfo(dirItem, fi, phyPrefix))
@@ -941,7 +930,6 @@ static HRESULT EnumerateDirItems(
         }
         #endif // defined(_WIN32)
 
-        #endif // !defined(UNDER_CE)
        }
 
 
@@ -1015,7 +1003,7 @@ static HRESULT EnumerateDirItems(
 
         // we don't want to call fi.Find() for root folder or virtual folder
         if ((phyPrefix.IsEmpty() && nextNode.Name.IsEmpty())
-            #if defined(_WIN32) && !defined(UNDER_CE)
+            #if defined(_WIN32)
             || IsVirtualFsFolder(phyPrefix, nextNode.Name)
             #endif
             )
@@ -1049,7 +1037,6 @@ static HRESULT EnumerateDirItems(
   }
 
   #ifdef _WIN32
-  #ifndef UNDER_CE
 
   // scan drives, if wildcard is "*:\"
 
@@ -1093,7 +1080,6 @@ static HRESULT EnumerateDirItems(
     }
   }
   
-  #endif
   #endif
 
 
@@ -1188,7 +1174,7 @@ HRESULT EnumerateItems(
   }
   dirItems.ReserveDown();
 
- #if defined(_WIN32) && !defined(UNDER_CE)
+ #if defined(_WIN32)
   RINOK(dirItems.FillFixedReparse())
  #endif
 
@@ -1200,7 +1186,7 @@ HRESULT EnumerateItems(
 }
 
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 
 HRESULT CDirItems::FillFixedReparse()
 {
@@ -1547,10 +1533,8 @@ static void ConvertToLongName(const UString &prefix, UString &name)
     return;
   NFind::CFileInfo fi;
   const FString path (us2fs(prefix + name));
-  #ifndef UNDER_CE
   if (NFile::NName::IsDevicePath(path))
     return;
-  #endif
   if (fi.Find(path))
     name = fs2us(fi.Name);
 }

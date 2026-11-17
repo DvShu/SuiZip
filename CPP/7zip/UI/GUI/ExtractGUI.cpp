@@ -196,10 +196,8 @@ HRESULT ExtractGUI(
   if (!options.TestMode)
   {
     FString outputDir = options.OutputDir;
-    #ifndef UNDER_CE
     if (outputDir.IsEmpty())
       GetCurrentDir(outputDir);
-    #endif
     if (showDialog)
     {
       CExtractDialog dialog;
@@ -219,6 +217,10 @@ HRESULT ExtractGUI(
       dialog.PathMode = options.PathMode;
       dialog.PathMode_Force = options.PathMode_Force;
       dialog.ElimDup = options.ElimDup;
+      #ifndef Z7_SFX
+      if (options.SmartExtract.Def)
+        dialog.SmartExtract = options.SmartExtract;
+      #endif
 
       if (archivePathsFull.Size() == 1)
         dialog.ArcPath = archivePathsFull[0];
@@ -240,6 +242,10 @@ HRESULT ExtractGUI(
       options.ElimDup = dialog.ElimDup;
       
       #ifndef Z7_SFX
+      options.SmartExtract = dialog.SmartExtract;
+      if (options.SmartExtract.Val && dialog.SmartExtractAddArcName &&
+          options.PathMode != NExtract::NPathMode::kAbsPaths)
+        options.OutDirMode = NExtractOutDirMode::k_AddArcName;
       // options.NtOptions.AltStreams = dialog.AltStreams;
       options.NtOptions.NtSecurity = dialog.NtSecurity;
       extractCallback->Password = dialog.Password;

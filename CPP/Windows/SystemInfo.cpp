@@ -487,9 +487,7 @@ static void Add_sysctlbyname_to_String(const char *name, AString &s)
 #endif
 
 #ifdef _WIN32
-#ifndef UNDER_CE
 Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-#endif
 #endif
 
 void GetSysInfo(AString &s1, AString &s2);
@@ -506,7 +504,7 @@ void GetSysInfo(AString &s1, AString &s2)
       // s += " : ";
     }
     
-    #if !defined(_WIN64) && !defined(UNDER_CE)
+    #if !defined(_WIN64)
     const
     Func_GetNativeSystemInfo fn = Z7_GET_PROC_ADDRESS(
     Func_GetNativeSystemInfo, GetModuleHandleA("kernel32.dll"),
@@ -917,7 +915,6 @@ void AddCpuFeatures(AString &s)
 
 
 #ifdef _WIN32
-#ifndef UNDER_CE
 
 EXTERN_C_BEGIN
 typedef void (WINAPI * Func_RtlGetVersion) (OSVERSIONINFOEXW *);
@@ -939,7 +936,6 @@ static BOOL My_RtlGetVersion(OSVERSIONINFOEXW *vi)
 }
 
 #endif
-#endif
 
 
 void GetOsInfoText(AString &sRes)
@@ -948,7 +944,6 @@ void GetOsInfoText(AString &sRes)
     AString s;
 
     #ifdef _WIN32
-    #ifndef UNDER_CE
       // OSVERSIONINFO vi;
       OSVERSIONINFOEXW vi;
       vi.dwOSVersionInfoSize = sizeof(vi);
@@ -977,7 +972,6 @@ void GetOsInfoText(AString &sRes)
         s += " ACP:";   s.Add_UInt32(GetACP());
       }
       */
-    #endif
     #else // _WIN32
 
       if (!s.IsEmpty())

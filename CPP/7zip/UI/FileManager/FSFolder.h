@@ -22,9 +22,7 @@ class CFSFolder;
 
 struct CDirItem: public NWindows::NFile::NFind::CFileInfo
 {
-#ifndef UNDER_CE
   UInt64 PackSize;
-#endif
 
 #ifdef FS_SHOW_LINKS_INFO
   FILETIME ChangeTime;
@@ -36,16 +34,12 @@ struct CDirItem: public NWindows::NFile::NFind::CFileInfo
   bool ChangeTime_WasRequested;
 #endif
 
-#ifndef UNDER_CE
   bool PackSize_Defined;
-#endif
 
   bool FolderStat_Defined;
   int Parent;
 
-#ifndef UNDER_CE
   CByteBuffer Reparse;
-#endif
   
   UInt64 NumFolders;
   UInt64 NumFiles;

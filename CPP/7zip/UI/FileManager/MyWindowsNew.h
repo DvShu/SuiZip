@@ -16,38 +16,7 @@ DEFINE_GUID(CLSID_TaskbarList, 0x56fdf344, 0xfd6d, 0x11d0, 0x95,0x8a, 0x00,0x60,
 
 #else // is not __MINGW*
 
-#ifndef Z7_OLD_WIN_SDK
 #include <ShObjIdl.h>
-#else
-
-#ifndef HIMAGELIST
-struct _IMAGELIST;
-typedef struct _IMAGELIST* HIMAGELIST;
-#endif
-
-#ifndef __ITaskbarList_INTERFACE_DEFINED__
-#define __ITaskbarList_INTERFACE_DEFINED__
-DEFINE_GUID(IID_ITaskbarList, 0x56FDF342, 0xFD6D, 0x11d0, 0x95, 0x8A, 0x00, 0x60, 0x97, 0xC9, 0xA0, 0x90);
-struct ITaskbarList: public IUnknown
-{
-  STDMETHOD(HrInit)(void) = 0;
-  STDMETHOD(AddTab)(HWND hwnd) = 0;
-  STDMETHOD(DeleteTab)(HWND hwnd) = 0;
-  STDMETHOD(ActivateTab)(HWND hwnd) = 0;
-  STDMETHOD(SetActiveAlt)(HWND hwnd) = 0;
-};
-#endif // __ITaskbarList_INTERFACE_DEFINED__
-
-#ifndef __ITaskbarList2_INTERFACE_DEFINED__
-#define __ITaskbarList2_INTERFACE_DEFINED__
-DEFINE_GUID(IID_ITaskbarList2, 0x602D4995, 0xB13A, 0x429b, 0xA6, 0x6E, 0x19, 0x35, 0xE4, 0x4F, 0x43, 0x17);
-struct ITaskbarList2: public ITaskbarList
-{
-  STDMETHOD(MarkFullscreenWindow)(HWND hwnd, BOOL fFullscreen) = 0;
-};
-#endif // __ITaskbarList2_INTERFACE_DEFINED__
-
-#endif // Z7_OLD_WIN_SDK
 
 
 #ifndef __ITaskbarList3_INTERFACE_DEFINED__

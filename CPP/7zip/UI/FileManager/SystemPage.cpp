@@ -32,9 +32,6 @@
 
 using namespace NWindows;
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 #define kSystemTopic "FM/options.htm#system"
 
@@ -62,10 +59,6 @@ int CSystemPage::AddIcon(const UString &iconPath, int iconIndex)
   
   HICON hicon;
   
-  #ifdef UNDER_CE
-  ExtractIconExW(iconPath, iconIndex, NULL, &hicon, 1);
-  if (!hicon)
-  #else
   // we expand path from REG_EXPAND_SZ registry item.
   UString path;
   const DWORD size = MAX_PATH + 10;
@@ -75,7 +68,6 @@ int CSystemPage::AddIcon(const UString &iconPath, int iconIndex)
     path = iconPath;
   const UINT num = ExtractIconExW(path, iconIndex, NULL, &hicon, 1);
   if (num != 1 || !hicon)
-  #endif
     return -1;
   
   _imageList.AddIcon(hicon);
@@ -163,14 +155,9 @@ bool CSystemPage::OnInit()
   LangString_OnlyFromLangFile(IDT_SYSTEM_ASSOCIATE, label);
   if (g_LangID.IsEqualTo_Ascii_NoCase("zh-cn"))
   {
-    #ifndef UNDER_CE
     SetItemText(IDT_SYSTEM_TOGGLE_HELP, L"切换选中的文件类型。未选中时切换整列。\n应用所有用户的更改需要管理员权限。");
     SetItemText(IDB_SYSTEM_CURRENT, L"切换当前用户关联");
     SetItemText(IDB_SYSTEM_ALL, L"切换所有用户关联");
-    #else
-    SetItemText(IDT_SYSTEM_TOGGLE_HELP, L"切换选中的文件类型。未选中时切换全部类型。");
-    SetItemText(IDB_SYSTEM_CURRENT, L"切换关联");
-    #endif
   }
 #endif
   if (label.IsEmpty())
@@ -196,29 +183,17 @@ bool CSystemPage::OnInit()
   #if NUM_EXT_GROUPS == 1
     s = "Program";
   #else
-    #ifndef UNDER_CE
       const unsigned kSize = 256;
       BOOL res;
 
       DWORD size = kSize;
 
-      #ifndef _UNICODE
-      if (!g_IsNT)
-      {
-        AString s2;
-        res = GetUserNameA(s2.GetBuf(size), &size);
-        s2.ReleaseBuf_CalcLen(MyMin((unsigned)size, kSize));
-        s = GetUnicodeString(s2);
-      }
-      else
-      #endif
       {
         res = GetUserNameW(s.GetBuf(size), &size);
         s.ReleaseBuf_CalcLen(MyMin((unsigned)size, kSize));
       }
     
       if (!res)
-    #endif
         s = "Current User";
   #endif
 
@@ -306,7 +281,6 @@ static LONG SetAssociation(HKEY key, const UString &ext, bool associate,
 }
 
 
-#ifndef UNDER_CE
 
 extern HINSTANCE g_hInstance;
 
@@ -422,7 +396,6 @@ static LONG RunElevatedAssociationCommand(HWND owner, const UString &programPath
   return (LONG)result;
 }
 
-#endif
 
 
 LONG CSystemPage::OnApply()
@@ -439,7 +412,6 @@ LONG CSystemPage::OnApply()
   const UString programPath = fs2us(programFile);
   const UString command = GetProgramCommand(programPath);
 
-  #ifndef UNDER_CE
   UString allUsersChanges;
   FOR_VECTOR (i, _items)
   {
@@ -459,7 +431,6 @@ LONG CSystemPage::OnApply()
     if (elevatedResult == ERROR_CANCELLED)
       return PSNRET_INVALID_NOCHANGEPAGE;
   }
-  #endif
 
   LONG result = ERROR_SUCCESS;
   bool applied = false;
@@ -478,7 +449,6 @@ LONG CSystemPage::OnApply()
       const HKEY key = GetHKey(g);
       const CSysString ext = GetSystemString(extInfo.Ext);
       LONG itemResult;
-      #ifndef UNDER_CE
       if (g == 1 && elevated)
       {
         itemResult = elevatedResult;
@@ -493,7 +463,6 @@ LONG CSystemPage::OnApply()
         }
       }
       else
-      #endif
         itemResult = SetAssociation(key, extInfo.Ext, mi.State == kExtState_7Zip,
             command, plug.IconPath, plug.IconIndex);
 
@@ -515,9 +484,7 @@ LONG CSystemPage::OnApply()
 
   if (applied)
   {
-    #ifndef UNDER_CE
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
-    #endif
     WasChanged = true;
   }
 
@@ -568,12 +535,8 @@ bool CSystemPage::OnNotify(UINT controlID, LPNMHDR lParam)
 
       case NM_CLICK:
       {
-        #ifdef UNDER_CE
-        NMLISTVIEW *item = (NMLISTVIEW *)lParam;
-        #else
         NMITEMACTIVATE *item = (NMITEMACTIVATE *)lParam;
         if (item->uKeyFlags == 0)
-        #endif
         {
           if (item->iItem >= 0)
           {
@@ -649,10 +612,8 @@ bool CSystemPage::OnListKeyDown(LPNMLVKEYDOWN keyDownInfo)
     case VK_SEPARATOR:
     case VK_DIVIDE:
 
-    #ifndef UNDER_CE
     case VK_OEM_PLUS:
     case VK_OEM_MINUS:
-    #endif
 
       if (!ctrl)
       {

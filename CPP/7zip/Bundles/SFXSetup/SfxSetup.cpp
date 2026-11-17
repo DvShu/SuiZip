@@ -17,7 +17,6 @@
 #include "../../../Windows/FileFind.h"
 #include "../../../Windows/FileIO.h"
 #include "../../../Windows/FileName.h"
-#include "../../../Windows/NtCheck.h"
 #include "../../../Windows/ResourceString.h"
 
 #include "../../UI/Explorer/MyMessages.h"
@@ -103,9 +102,6 @@ static bool ReadDataString(CFSTR fileName, AString &stringResult)
   return scanMode;
 }
 
-#if defined(_WIN32) && defined(_UNICODE) && !defined(_WIN64) && !defined(UNDER_CE)
-#define NT_CHECK_FAIL_ACTION ShowErrorMessage(L"Unsupported Windows version"); return 1;
-#endif
 
 static void ShowErrorMessageSpec(const UString &name)
 {
@@ -120,16 +116,11 @@ static void ShowErrorMessageSpec(const UString &name)
 }
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */,
-    #ifdef UNDER_CE
-    LPWSTR
-    #else
     LPSTR
-    #endif
     /* lpCmdLine */,int /* nCmdShow */)
 {
   g_hInstance = (HINSTANCE)hInstance;
 
-  NT_CHECK
 
   #ifdef _WIN32
   LoadSecurityDlls();
@@ -244,11 +235,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */,
     }
   }
 
-  #ifndef UNDER_CE
   CCurrentDirRestorer currentDirRestorer;
   if (!SetCurrentDir(tempDirPath))
     return 1;
-  #endif
   
   HANDLE hProcess = NULL;
 #ifdef MY_SHELL_EXECUTE
@@ -258,9 +247,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */,
     SHELLEXECUTEINFO execInfo;
     execInfo.cbSize = sizeof(execInfo);
     execInfo.fMask = SEE_MASK_NOCLOSEPROCESS
-      #ifndef UNDER_CE
       | SEE_MASK_FLAG_DDEWAIT
-      #endif
       ;
     execInfo.hwnd = NULL;
     execInfo.lpVerb = NULL;

@@ -8,7 +8,6 @@
 namespace NWindows {
 namespace NSecurity {
 
-#ifndef UNDER_CE
 
 bool EnablePrivilege(LPCTSTR privilegeName, bool enable = true);
 
@@ -33,7 +32,6 @@ inline void EnablePrivilege_SymLink()
 
 unsigned Get_LargePages_RiskLevel();
 
-#endif
 
 }}
 

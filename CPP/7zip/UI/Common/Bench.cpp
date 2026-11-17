@@ -63,11 +63,7 @@ static const UInt32 k_LZMA = 0x030101;
 #endif
 
 static const UInt64 kComplexInCommands = (UInt64)1 <<
-  #ifdef UNDER_CE
-    31;
-  #else
     34;
-  #endif
 
 static const UInt32 kComplexInMs = 4000;
 
@@ -501,11 +497,7 @@ void CUserTime::Update()
   DWORD new_Tick = GetTickCount();
   FILETIME creationTime, exitTime, kernelTime, userTime;
   if (!UseTick &&
-      #ifdef UNDER_CE
-        ::GetThreadTimes(::GetCurrentThread()
-      #else
         ::GetProcessTimes(::GetCurrentProcess()
-      #endif
       , &creationTime, &exitTime, &kernelTime, &userTime))
   {
     UInt64 newVal = GetTime64(userTime) + GetTime64(kernelTime);
@@ -4679,9 +4671,6 @@ HRESULT Bench(
     const unsigned dicSizeLog_Main = (totalBenchMode ? 24 : 25);
     unsigned dicSizeLog = dicSizeLog_Main;
     
-    #ifdef UNDER_CE
-    dicSizeLog = (UInt64)1 << 20;
-    #endif
 
     if (ramSize_Defined)
     for (; dicSizeLog > kBenchMinDicLogSize; dicSizeLog--)

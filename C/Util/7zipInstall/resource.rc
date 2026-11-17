@@ -44,6 +44,4 @@ BEGIN
   PUSHBUTTON     "Cancel",  IDCANCEL, bx1, by, bxs, bys
 END
 
-#ifndef UNDER_CE
 1 24 MOVEABLE PURE "7zipInstall.manifest"
-#endif

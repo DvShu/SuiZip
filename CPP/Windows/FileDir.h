@@ -74,9 +74,7 @@ bool MyMoveFile_with_Progress(CFSTR oldFile, CFSTR newFile,
     ICopyFileProgress *progress);
 
 
-#ifndef UNDER_CE
 bool MyCreateHardLink(CFSTR newFileName, CFSTR existFileName);
-#endif
 
 bool RemoveDir(CFSTR path);
 bool CreateDir(CFSTR path);
@@ -100,12 +98,10 @@ bool MyGetFullPathName(CFSTR path, FString &resFullPath);
 bool GetFullPathAndSplit(CFSTR path, FString &resDirPrefix, FString &resFileName);
 bool GetOnlyDirPrefix(CFSTR path, FString &resDirPrefix);
 
-#ifndef UNDER_CE
 
 bool SetCurrentDir(CFSTR path);
 bool GetCurrentDir(FString &resultPath);
 
-#endif
 
 bool MyGetTempPath(FString &resultPath);
 
@@ -145,7 +141,6 @@ public:
 #endif
 
 
-#if !defined(UNDER_CE)
 class CCurrentDirRestorer  MY_UNCOPYABLE
 {
   FString _path;
@@ -166,7 +161,6 @@ public:
         SetCurrentDir(_path);
   }
 };
-#endif
 
 }}}
 

@@ -7,20 +7,9 @@
 // for old mingw
 #include <ddk/ntddk.h>
 #else
-#ifndef Z7_OLD_WIN_SDK
   #if !defined(_M_IA64)
     #include <winternl.h>
   #endif
-#else
-typedef LONG NTSTATUS;
-typedef struct _IO_STATUS_BLOCK {
-    union {
-        NTSTATUS Status;
-        PVOID Pointer;
-    };
-    ULONG_PTR Information;
-} IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
-#endif
 #endif
 
 #include "../../../Common/ComTry.h"
@@ -39,9 +28,7 @@ typedef struct _IO_STATUS_BLOCK {
 #include "FSDrives.h"
 #include "FSFolder.h"
 
-#ifndef UNDER_CE
 #include "NetFolder.h"
-#endif
 
 #include "SysIconUtils.h"
 
@@ -65,16 +52,6 @@ typedef struct
 
 EXTERN_C_END
 
-#if !defined(_WIN32_WINNT) || _WIN32_WINNT < 0x0501
-#ifdef _APISETFILE_
-// Windows SDK 8.1 defines in fileapi.h the function GetCompressedFileSizeW only if _WIN32_WINNT >= 0x0501
-// But real support version for that function is NT 3.1 (probably)
-// So we must define GetCompressedFileSizeW
-EXTERN_C_BEGIN
-WINBASEAPI DWORD WINAPI GetCompressedFileSizeW(LPCWSTR lpFileName, LPDWORD lpFileSizeHigh);
-EXTERN_C_END
-#endif
-#endif
 
 using namespace NWindows;
 using namespace NFile;
@@ -180,7 +157,6 @@ HRESULT CFsFolderStat::Enumerate()
   return S_OK;
 }
 
-#ifndef UNDER_CE
 
 bool MyGetCompressedFileSizeW(CFSTR path, UInt64 &size);
 bool MyGetCompressedFileSizeW(CFSTR path, UInt64 &size)
@@ -214,7 +190,6 @@ bool MyGetCompressedFileSizeW(CFSTR path, UInt64 &size)
   return false;
 }
 
-#endif
 
 HRESULT CFSFolder::LoadSubItems(int dirItem, const FString &relPrefix)
 {
@@ -245,7 +220,6 @@ HRESULT CFSFolder::LoadSubItems(int dirItem, const FString &relPrefix)
         */
       }
       
-     #ifndef UNDER_CE
 
       fi.Reparse.Free();
       fi.PackSize_Defined = false;
@@ -273,11 +247,10 @@ HRESULT CFSFolder::LoadSubItems(int dirItem, const FString &relPrefix)
       }
      #endif
 
-     #endif // UNDER_CE
 
       /* unsigned fileIndex = */ Files.Add(fi);
 
-      #if defined(_WIN32) && !defined(UNDER_CE)
+      #if defined(_WIN32)
       /*
       if (_scanAltStreams)
       {
@@ -556,9 +529,6 @@ Z7_COM7F_IMF(CFSFolder::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *va
     case kpidName: prop = fs2us(fi.Name); break;
     case kpidSize: if (!fi.IsDir() || fi.FolderStat_Defined) prop = fi.Size; break;
     case kpidPackSize:
-      #ifdef UNDER_CE
-      prop = fi.Size;
-      #else
       if (!fi.PackSize_Defined)
       {
         fi.PackSize_Defined = true;
@@ -566,31 +536,22 @@ Z7_COM7F_IMF(CFSFolder::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *va
           fi.PackSize = fi.Size;
       }
       prop = fi.PackSize;
-      #endif
       break;
 
     #ifdef FS_SHOW_LINKS_INFO
 
     case kpidLinks:
-      #ifdef UNDER_CE
-      // prop = fi.NumLinks;
-      #else
       if (!fi.FileInfo_WasRequested)
         ReadFileInfo(fi);
       if (fi.FileInfo_Defined)
         prop = fi.NumLinks;
-      #endif
       break;
     
     case kpidINode:
-      #ifdef UNDER_CE
-      // prop = fi.FileIndex;
-      #else
       if (!fi.FileInfo_WasRequested)
         ReadFileInfo(fi);
       if (fi.FileInfo_Defined)
         prop = fi.FileIndex;
-      #endif
       break;
 
     case kpidChangeTime:
@@ -656,16 +617,11 @@ Z7_COM7F_IMF(CFSFolder::GetParent(UInt32 /* index */, UInt32 * /* parent */, UIn
 Z7_COM7F_IMF(CFSFolder::GetRawProp(UInt32 index, PROPID propID,
     const void **data, UInt32 *dataSize, UInt32 *propType))
 {
-  #ifdef UNDER_CE
-  UNUSED(index)
-  UNUSED(propID)
-  #endif
 
   *data = NULL;
   *dataSize = 0;
   *propType = 0;
   
-  #ifndef UNDER_CE
   if (propID == kpidNtReparse)
   {
     const CDirItem &fi = Files[index];
@@ -677,7 +633,6 @@ Z7_COM7F_IMF(CFSFolder::GetRawProp(UInt32 index, PROPID propID,
     *propType = NPropDataType::kRaw;
     return S_OK;
   }
-  #endif
   
   return S_OK;
 }
@@ -736,36 +691,28 @@ Z7_COM7F_IMF2(Int32, CFSFolder::CompareItems(UInt32 index1, UInt32 index2, PROPI
     }
     case kpidPackSize:
     {
-      #ifdef UNDER_CE
-      return MyCompare(fi1.Size, fi2.Size);
-      #else
       // PackSize can be undefined here
       return MyCompare(
           /* ss1 ? ss1->PackSize : */ fi1.PackSize,
           /* ss2 ? ss2->PackSize : */ fi2.PackSize);
-      #endif
     }
     
     #ifdef FS_SHOW_LINKS_INFO
     case kpidINode:
     {
-      #ifndef UNDER_CE
       if (!fi1.FileInfo_WasRequested) ReadFileInfo(fi1);
       if (!fi2.FileInfo_WasRequested) ReadFileInfo(fi2);
       return MyCompare(
           fi1.FileIndex,
           fi2.FileIndex);
-      #endif
     }
     case kpidLinks:
     {
-      #ifndef UNDER_CE
       if (!fi1.FileInfo_WasRequested) ReadFileInfo(fi1);
       if (!fi2.FileInfo_WasRequested) ReadFileInfo(fi2);
       return MyCompare(
           fi1.NumLinks,
           fi2.NumLinks);
-      #endif
     }
     #endif
 
@@ -877,7 +824,6 @@ Z7_COM7F_IMF(CFSFolder::BindToParentFolder(IFolderFolder **resultFolder))
   if (_path.IsEmpty())
     return E_INVALIDARG;
   
-  #ifndef UNDER_CE
 
   if (IsDriveRootPath_SuperAllowed(_path))
   {
@@ -922,7 +868,6 @@ Z7_COM7F_IMF(CFSFolder::BindToParentFolder(IFolderFolder **resultFolder))
   }
   */
   
-  #endif
 
   return S_OK;
 }

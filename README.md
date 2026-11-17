@@ -10,6 +10,8 @@ SuiZip is an independently maintained fork of 7-Zip 26.06, which Igor Pavlov dev
 
 ## Build and run on Windows
 
+SuiZip requires 64-bit Windows 10 or later. The installer and the Explorer context-menu extension target x64.
+
 Install Visual Studio with the **Desktop development with C++** workload and the Windows SDK. From the repository root, run `.\dev.cmd` to build and open the file manager. Run `.\dev.cmd -Debugger` to open the debug build in Visual Studio.
 
 ### Build the x64 installer

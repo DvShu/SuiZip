@@ -15,7 +15,7 @@
 
 #ifdef _WIN32
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 #include <winioctl.h>
 #endif
 
@@ -63,7 +63,7 @@ HRESULT GetLastError_noZero_HRESULT();
 namespace NWindows {
 namespace NFile {
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 /*
   in:  (CByteBuffer &dest) is empty
   in:  (path) uses Windows path separator (\).
@@ -231,7 +231,6 @@ public:
       Z7_WIN_FILE_INFORMATION_CLASS fileInformationClass) const;
 };
 
-#ifndef UNDER_CE
 #define IOCTL_CDROM_BASE  FILE_DEVICE_CD_ROM
 #define IOCTL_CDROM_GET_DRIVE_GEOMETRY  CTL_CODE(IOCTL_CDROM_BASE, 0x0013, METHOD_BUFFERED, FILE_READ_ACCESS)
 // #define IOCTL_CDROM_MEDIA_REMOVAL  CTL_CODE(IOCTL_CDROM_BASE, 0x0201, METHOD_BUFFERED, FILE_READ_ACCESS)
@@ -245,13 +244,11 @@ struct my_DISK_GEOMETRY_EX
   LARGE_INTEGER DiskSize;
   BYTE Data[1];
 };
-#endif
 
 class CInFile: public CFileBase
 {
   #ifdef Z7_DEVICE_FILE
 
-  #ifndef UNDER_CE
   
   bool GetGeometry(DISK_GEOMETRY *res) const
     { return DeviceIoControlOut(IOCTL_DISK_GET_DRIVE_GEOMETRY, res, sizeof(*res)); }
@@ -265,7 +262,6 @@ class CInFile: public CFileBase
   bool GetPartitionInfo(PARTITION_INFORMATION *res)
     { return DeviceIoControlOut(IOCTL_DISK_GET_PARTITION_INFO, LPVOID(res), sizeof(*res)); }
   
-  #endif
 
   void CorrectDeviceSize();
   void CalcDeviceSize(CFSTR name);
@@ -291,7 +287,6 @@ public:
   }
 #endif
 
-  #ifndef UNDER_CE
 
   bool Open_for_ReadAttributes(CFSTR fileName)
   {
@@ -321,7 +316,6 @@ public:
         FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS);
   }
   
-  #endif
 
   bool Read1(void *data, UInt32 size, UInt32 &processedSize) throw();
   bool ReadPart(void *data, UInt32 size, UInt32 &processedSize) throw();

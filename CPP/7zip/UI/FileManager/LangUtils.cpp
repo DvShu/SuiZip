@@ -1,4 +1,4 @@
-// LangUtils.cpp
+﻿// LangUtils.cpp
 
 #include "StdAfx.h"
 
@@ -8,14 +8,14 @@
 #include "../../../Windows/Synchronization.h"
 #include "../../../Windows/Window.h"
 
+#include "../Explorer/resource.h"
+#include "../GUI/ExtractDialogRes.h"
+
 #include "LangUtils.h"
 #include "RegistryUtils.h"
 
 using namespace NWindows;
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 UString g_LangID;
 
@@ -37,6 +37,18 @@ FString GetLangDirPrefix()
 
 #ifdef Z7_LANG
 
+static const wchar_t *FindLangString(UInt32 langID)
+{
+  if (g_LangID.IsEqualTo_Ascii_NoCase("zh-cn"))
+  {
+    if (langID == IDS_CONTEXT_EXTRACT_HERE)
+      return L"智能解压到当前位置";
+    if (langID == IDX_SMART_EXTRACT)
+      return L"智能解压";
+  }
+  return g_Lang.Get(langID);
+}
+
 void LoadLangOneTime()
 {
   NSynchronization::CCriticalSectionLock lock(g_CriticalSection);
@@ -48,7 +60,7 @@ void LoadLangOneTime()
 
 void LangSetDlgItemText(HWND dialog, UInt32 controlID, UInt32 langID)
 {
-  const wchar_t *s = g_Lang.Get(langID);
+  const wchar_t *s = FindLangString(langID);
   if (s)
   {
     CWindow window(GetDlgItem(dialog, (int)controlID));
@@ -136,7 +148,7 @@ void LangSetWindowText(HWND window, UInt32 langID)
 
 UString LangString(UInt32 langID)
 {
-  const wchar_t *s = g_Lang.Get(langID);
+  const wchar_t *s = FindLangString(langID);
   if (s)
     return s;
   return MyLoadString(langID);
@@ -149,7 +161,7 @@ void AddLangString(UString &s, UInt32 langID)
 
 void LangString(UInt32 langID, UString &dest)
 {
-  const wchar_t *s = g_Lang.Get(langID);
+  const wchar_t *s = FindLangString(langID);
   if (s)
   {
     dest = s;
@@ -311,9 +323,6 @@ void ReloadLang()
   ReadRegLang(g_LangID);
   if (g_LangID.IsEmpty())
   {
-#ifndef _UNICODE
-    if (g_IsNT)
-#endif
       OpenDefaultLang();
     return;
   }

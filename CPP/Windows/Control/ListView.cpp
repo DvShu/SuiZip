@@ -4,9 +4,6 @@
 
 #include "ListView.h"
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 namespace NWindows {
 namespace NControl {
@@ -69,40 +66,6 @@ int CListView::SetSubItem(unsigned index, unsigned subIndex, LPCTSTR text)
   return SetItem(&item);
 }
 
-#ifndef _UNICODE
-
-int CListView::InsertColumn(unsigned columnIndex, LPCWSTR text, int width)
-{
-  LVCOLUMNW ci;
-  ci.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
-  ci.pszText = (LPWSTR)(void *)text;
-  ci.iSubItem = (int)columnIndex;
-  ci.cx = width;
-  return InsertColumn(columnIndex, &ci);
-}
-
-int CListView::InsertItem(unsigned index, LPCWSTR text)
-{
-  LVITEMW item;
-  item.mask = LVIF_TEXT | LVIF_PARAM;
-  item.iItem = (int)index;
-  item.lParam = (LPARAM)index;
-  item.pszText = (LPWSTR)(void *)text;
-  item.iSubItem = 0;
-  return InsertItem(&item);
-}
-
-int CListView::SetSubItem(unsigned index, unsigned subIndex, LPCWSTR text)
-{
-  LVITEMW item;
-  item.mask = LVIF_TEXT;
-  item.iItem = (int)index;
-  item.pszText = (LPWSTR)(void *)text;
-  item.iSubItem = (int)subIndex;
-  return SetItem(&item);
-}
-
-#endif
 
 static LRESULT APIENTRY ListViewSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -115,22 +78,12 @@ static LRESULT APIENTRY ListViewSubclassProc(HWND hwnd, UINT message, WPARAM wPa
 
 LRESULT CListView2::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 {
-  #ifndef _UNICODE
-  if (g_IsNT)
-    return CallWindowProcW(_origWindowProc, *this, message, wParam, lParam);
-  else
-  #endif
     return CallWindowProc(_origWindowProc, *this, message, wParam, lParam);
 }
 
 void CListView2::SetWindowProc()
 {
   SetUserDataLongPtr((LONG_PTR)this);
-  #ifndef _UNICODE
-  if (g_IsNT)
-    _origWindowProc = (WNDPROC)SetLongPtrW(GWLP_WNDPROC, (LONG_PTR)ListViewSubclassProc);
-  else
-  #endif
     _origWindowProc = (WNDPROC)SetLongPtr(GWLP_WNDPROC, (LONG_PTR)ListViewSubclassProc);
 }
 

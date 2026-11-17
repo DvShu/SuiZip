@@ -10,8 +10,6 @@
 #endif
 
 #include "../../Common/ComTry.h"
-
-#include "../../Windows/NtCheck.h"
 #include "../../Windows/PropVariant.h"
 
 #include "../ICoder.h"
@@ -24,35 +22,23 @@
 
 #ifdef _WIN32
 
-#if defined(_UNICODE) && !defined(_WIN64) && !defined(UNDER_CE)
-#define NT_CHECK_FAIL_ACTION return FALSE;
-#endif
 
 // static HINSTANCE g_hInstance;
 
 extern "C"
 BOOL WINAPI DllMain(
-  #ifdef UNDER_CE
-  HANDLE
-  #else
   HINSTANCE
-  #endif
   hInstance, DWORD dwReason, LPVOID /*lpReserved*/);
 
 extern "C"
 BOOL WINAPI DllMain(
-  #ifdef UNDER_CE
-  HANDLE
-  #else
   HINSTANCE
-  #endif
   /* hInstance */, DWORD dwReason, LPVOID /*lpReserved*/)
 {
   if (dwReason == DLL_PROCESS_ATTACH)
   {
     // OutputDebugStringA("7z.dll DLL_PROCESS_ATTACH");
     // g_hInstance = (HINSTANCE)hInstance;
-    NT_CHECK
   }
   /*
   if (dwReason == DLL_PROCESS_DETACH)

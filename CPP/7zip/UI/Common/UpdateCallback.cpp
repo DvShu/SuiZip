@@ -36,7 +36,7 @@
 
 #include "UpdateCallback.h"
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 #define Z7_USE_SECURITY_CODE
 #include "../../../Windows/SecurityUtils.h"
 #endif
@@ -262,7 +262,7 @@ Z7_COM7F_IMF(CArchiveUpdateCallback::GetRawProp(UInt32 index, PROPID propID, con
       if (up.IsAnti)
         return S_OK;
       
-      #if defined(_WIN32) && !defined(UNDER_CE)
+      #if defined(_WIN32)
       const CDirItem &di = DirItems->Items[(unsigned)up.DirIndex];
       #endif
 
@@ -284,7 +284,7 @@ Z7_COM7F_IMF(CArchiveUpdateCallback::GetRawProp(UInt32 index, PROPID propID, con
       {
         if (!StoreSymLinks)
           return S_OK;
-        #if defined(_WIN32) && !defined(UNDER_CE)
+        #if defined(_WIN32)
         // we use ReparseData2 instead of ReparseData for WIM format
         const CByteBuffer *buf = &di.ReparseData2;
         if (buf->Size() == 0)
@@ -305,7 +305,7 @@ Z7_COM7F_IMF(CArchiveUpdateCallback::GetRawProp(UInt32 index, PROPID propID, con
   return S_OK;
 }
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 
 static UString GetRelativePath(const UString &to, const UString &from, bool isWSL)
 {
@@ -375,7 +375,6 @@ Z7_COM7F_IMF(CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PR
         return S_OK;
       }
       
-#if !defined(UNDER_CE)
       if (up.DirIndex >= 0)
       {
         const CDirItem &di = DirItems->Items[(unsigned)up.DirIndex];
@@ -455,7 +454,6 @@ Z7_COM7F_IMF(CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PR
         prop.Detach(value);
         return S_OK;
       }
-#endif // !defined(UNDER_CE)
     }
     else if (propID == kpidHardLink)
     {
@@ -643,7 +641,6 @@ Z7_COM7F_IMF(CArchiveUpdateCallback::GetStream2(UInt32 index, ISequentialInStrea
   }
   else
   {
-    #if !defined(UNDER_CE)
     const CDirItem &di = DirItems->Items[(unsigned)up.DirIndex];
     if (di.AreReparseData())
     {
@@ -664,7 +661,6 @@ Z7_COM7F_IMF(CArchiveUpdateCallback::GetStream2(UInt32 index, ISequentialInStrea
       UpdateProcessedItemStatus((unsigned)up.DirIndex);
       return S_OK;
     }
-    #endif // !defined(UNDER_CE)
 
     CInFileStream *inStreamSpec = new CInFileStream;
     CMyComPtr<ISequentialInStream> inStreamLoc(inStreamSpec);

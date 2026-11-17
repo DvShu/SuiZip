@@ -4,7 +4,7 @@
 
 #include "HelpUtils.h"
 
-#if defined(UNDER_CE) || defined(__MINGW32_VERSION)
+#if defined(__MINGW32_VERSION)
 
 void ShowHelpWindow(LPCSTR)
 {
@@ -45,13 +45,9 @@ void ShowHelpWindow(LPCSTR topicFile)
  #ifdef USE_EXTERNAL_HELP
   FString prog;
 
-  #ifdef UNDER_CE
-    prog = "\\Windows\\";
-  #else
     if (!NWindows::NFile::NDir::GetWindowsDir(prog))
       return;
     NWindows::NFile::NName::NormalizeDirPathPrefix(prog);
-  #endif
   prog += "hh.exe";
 
   UString params;

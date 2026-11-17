@@ -9,14 +9,6 @@
 
 #include "DllSecur.h"
 
-#ifndef UNDER_CE
-
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-
-typedef BOOL (WINAPI *Func_SetDefaultDllDirectories)(DWORD DirectoryFlags);
-
-#define MY_LOAD_LIBRARY_SEARCH_USER_DIRS 0x400
-#define MY_LOAD_LIBRARY_SEARCH_SYSTEM32  0x800
 
 #define DELIM "\0"
 
@@ -35,37 +27,22 @@ static const char * const g_Dlls =
   #endif
   DELIM;
 
-#endif
 
-#ifdef __clang__
-  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-#if defined (_MSC_VER) && _MSC_VER >= 1900
-// sysinfoapi.h: kit10: GetVersion was declared deprecated
-#pragma warning(disable : 4996)
-#endif
-
-#define IF_NON_VISTA_SET_DLL_DIRS_AND_RETURN \
-    if ((UInt16)GetVersion() != 6) { \
-      const \
-       Func_SetDefaultDllDirectories setDllDirs = \
-      (Func_SetDefaultDllDirectories) Z7_CAST_FUNC_C GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")), \
-           "SetDefaultDllDirectories"); \
-      if (setDllDirs) if (setDllDirs(MY_LOAD_LIBRARY_SEARCH_SYSTEM32 | MY_LOAD_LIBRARY_SEARCH_USER_DIRS)) return; }
+static BOOL SetSafeDllDirectories(void)
+{
+  return SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32 | LOAD_LIBRARY_SEARCH_USER_DIRS);
+}
 
 void My_SetDefaultDllDirectories(void)
 {
-  #ifndef UNDER_CE
-  IF_NON_VISTA_SET_DLL_DIRS_AND_RETURN
-  #endif
+  SetSafeDllDirectories();
 }
 
 
 void LoadSecurityDlls(void)
 {
-  #ifndef UNDER_CE
-  // at Vista (ver 6.0) : CoCreateInstance(CLSID_ShellLink, ...) doesn't work after SetDefaultDllDirectories() : Check it ???
-  IF_NON_VISTA_SET_DLL_DIRS_AND_RETURN
+  if (SetSafeDllDirectories())
+    return;
   {
     WCHAR buf[MAX_PATH + 100];
     const char *dll;
@@ -93,7 +70,6 @@ void LoadSecurityDlls(void)
       LoadLibraryExW(buf, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
     }
   }
-  #endif
 }
 
 #endif // _WIN32

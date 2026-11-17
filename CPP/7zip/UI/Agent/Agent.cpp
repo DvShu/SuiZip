@@ -1532,7 +1532,7 @@ Z7_COM7F_IMF(CAgentFolder::Extract(const UInt32 *indices,
   
   extractCallbackSpec->InitBeforeNewArchive();
 
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
     if (_zoneMode != NExtract::NZoneIdMode::kNone)
     {
       ReadZoneFile_Of_BaseFile(us2fs(_agentSpec->_archiveFilePath), extractCallbackSpec->ZoneBuf);

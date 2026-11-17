@@ -32,18 +32,11 @@ Also we need IID_IUnknown that is initialized in some file for linking:
   // #pragma GCC diagnostic ignored "-Wmissing-variable-declarations"
 #endif
 
-#ifdef UNDER_CE
-#include <basetyps.h>
-#endif
 
 // for vc6 without sdk we must define INITGUID here
 #define INITGUID
 #include <initguid.h>
 
-#ifdef UNDER_CE
-DEFINE_GUID(IID_IUnknown,
-0x00000000, 0x0000, 0x0000, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46);
-#endif
 
 #else // _WIN32
 

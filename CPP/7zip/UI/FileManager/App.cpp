@@ -145,10 +145,29 @@ HRESULT CApp::CreateOnePanel(unsigned panelIndex, const UString &mainPath, const
 }
 
 
+static HFONT CreateControlFont(int dpi)
+{
+  typedef BOOL (WINAPI *SystemParametersInfoForDpiFunc)(UINT, UINT, PVOID, UINT, UINT);
+  static const SystemParametersInfoForDpiFunc systemParametersInfoForDpi = Z7_GET_PROC_ADDRESS(
+      SystemParametersInfoForDpiFunc, ::GetModuleHandleW(L"user32.dll"), "SystemParametersInfoForDpi");
+  NONCLIENTMETRICSW metrics = {};
+  metrics.cbSize = sizeof(metrics);
+  const BOOL ok = systemParametersInfoForDpi
+      ? systemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0, (UINT)dpi)
+      : ::SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0);
+  return ok ? ::CreateFontIndirectW(&metrics.lfMessageFont) : NULL;
+}
+
+CApp::~CApp()
+{
+  if (_controlFont)
+    ::DeleteObject(_controlFont);
+}
+
 static void CreateToolbar(HWND parent,
     NControl::CImageList &imageList,
     NControl::CToolBar &toolBar,
-    bool largeButtons)
+    bool largeButtons, HFONT font)
 {
   toolBar.Attach(::CreateWindowEx(0, TOOLBARCLASSNAME, NULL, 0
       | WS_CHILD
@@ -157,35 +176,33 @@ static void CreateToolbar(HWND parent,
       | TBSTYLE_TOOLTIPS
       | TBSTYLE_WRAPABLE
       | CCS_NODIVIDER
-      #ifdef UNDER_CE
-      | CCS_NOPARENTALIGN
-      #else
       | TBSTYLE_LIST
       | TBSTYLE_TRANSPARENT
-      #endif
       ,0,0,0,0, parent, NULL, g_hInstance, NULL));
 
   // TB_BUTTONSTRUCTSIZE message, which is required for
   // backward compatibility.
   toolBar.ButtonStructSize();
 
-  const int iconSize = largeButtons ? 32 : 24;
+  const int iconSize = NFileManagerStyle::Scale(parent, largeButtons ? 32 : 24);
   imageList.Create(iconSize, iconSize, ILC_MASK | ILC_COLOR32, 0, 0);
-  HBITMAP bitmap = ::LoadBitmap(g_hInstance,
-      MAKEINTRESOURCE(largeButtons ? IDB_TOOLBAR_LARGE : IDB_TOOLBAR_SMALL));
+  const unsigned bitmapID = iconSize > 24 ? IDB_TOOLBAR_LARGE : IDB_TOOLBAR_SMALL;
+  // Both resource strips have seven icons in the same order.
+  HBITMAP bitmap = (HBITMAP)::LoadImage(g_hInstance, MAKEINTRESOURCE(bitmapID),
+      IMAGE_BITMAP, 7 * iconSize, iconSize, LR_CREATEDIBSECTION);
   if (bitmap)
   {
     imageList.AddMasked(bitmap, RGB(255, 0, 255));
     ::DeleteObject(bitmap);
   }
   toolBar.SetImageList(0, imageList);
+  if (font)
+    toolBar.SendMsg(WM_SETFONT, (WPARAM)font, FALSE);
 
-  #ifndef UNDER_CE
   const int inset = NFileManagerStyle::Scale(parent, 10);
   toolBar.SendMsg(TB_SETINDENT, (WPARAM)inset, 0);
-  toolBar.SendMsg(TB_SETPADDING, 0, MAKELPARAM(2 * inset, inset + 4));
+  toolBar.SendMsg(TB_SETPADDING, 0, MAKELPARAM(2 * inset, NFileManagerStyle::Scale(parent, 14)));
   toolBar.SendMsg(TB_SETMAXTEXTROWS, 1, 0);
-  #endif
 }
 
 
@@ -248,11 +265,7 @@ static void AddButton(
   UString s = butInfo.GetText();
   but.iString = showText ? (INT_PTR)(LPCWSTR)s : -1;
 
-  #ifdef _UNICODE
   toolBar.AddButton(1, &but);
-  #else
-  toolBar.AddButtonW(1, &but);
-  #endif
 }
 
 void CApp::ReloadToolbars()
@@ -262,7 +275,7 @@ void CApp::ReloadToolbars()
 
   if (ShowArchiveToolbar || ShowStandardToolbar)
   {
-    CreateToolbar(_window, _buttonsImageList, _toolBar, LargeButtons);
+    CreateToolbar(_window, _buttonsImageList, _toolBar, LargeButtons, _controlFont);
     if (ShowArchiveToolbar)
       for (unsigned i = 0; i < Z7_ARRAY_SIZE(g_ArchiveButtons); i++)
         AddButton(_toolBar, g_ArchiveButtons[i], ShowButtonsLables);
@@ -273,6 +286,23 @@ void CApp::ReloadToolbars()
 
     _toolBar.AutoSize();
   }
+}
+
+void CApp::OnDpiChanged(int dpi)
+{
+  if (!_window || dpi <= 0)
+    return;
+  const HFONT oldFont = _controlFont;
+  const HFONT newFont = CreateControlFont(dpi);
+  if (newFont)
+    _controlFont = newFont;
+  for (unsigned i = 0; i < kNumPanelsMax; i++)
+    if (Panels[i].PanelCreated)
+      Panels[i].UpdateDpi(dpi, _controlFont);
+  ReloadToolbars();
+  if (newFont && oldFont)
+    ::DeleteObject(oldFont);
+  MoveSubWindows();
 }
 
 void CApp::SaveToolbarChanges()
@@ -286,16 +316,11 @@ void CApp::SaveToolbarChanges()
 HRESULT CApp::Create(HWND hwnd, const UString &mainPath, const UString &arcFormat, int xSizes[2], bool needOpenArc, COpenResult &openRes)
 {
   _window.Attach(hwnd);
+  _controlFont = CreateControlFont(NFileManagerStyle::GetDpi(hwnd));
 
-  #ifdef UNDER_CE
-  _commandBar.Create(g_hInstance, hwnd, 1);
-  #endif
 
   MyLoadMenu(false);  // needResetMenu
   
-  #ifdef UNDER_CE
-  _commandBar.AutoSize();
-  #endif
 
   ReadToolbar();
   ReloadToolbars();
@@ -651,7 +676,7 @@ void CApp::OnCopy(bool move, bool copyToSame, unsigned srcPanelIndex)
       destPath = srcPanel.GetFsPath();
     destPath += correctName;
 
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     if (destPath.Len() != 0 && destPath[0] == '\\')
       if (destPath.Len() == 1 || destPath[1] != '\\')
       {
@@ -948,17 +973,6 @@ void CApp::OnNotify(int /* ctrlID */, LPNMHDR pnmh)
       info->lpszText = g_ToolTipBufferSys.Ptr_non_const();
       return;
     }
-    #ifndef _UNICODE
-    if (pnmh->code == TTN_GETDISPINFOW)
-    {
-      LPNMTTDISPINFOW info = (LPNMTTDISPINFOW)pnmh;
-      info->hinst = NULL;
-      g_ToolTipBuffer.Empty();
-      SetButtonText((int)info->hdr.idFrom, g_ToolTipBuffer);
-      info->lpszText = g_ToolTipBuffer.Ptr_non_const();
-      return;
-    }
-    #endif
   }
 }
 

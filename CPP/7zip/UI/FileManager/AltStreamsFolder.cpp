@@ -33,14 +33,12 @@ using namespace NName;
 int CompareFileNames_ForFolderList(const FChar *s1, const FChar *s2);
 #endif
 
-#ifndef UNDER_CE
 
 namespace NFsFolder
 {
 bool MyGetCompressedFileSizeW(CFSTR path, UInt64 &size);
 }
 
-#endif
 
 namespace NAltStreamsFolder {
 
@@ -200,9 +198,6 @@ Z7_COM7F_IMF(CAltStreamsFolder::GetProperty(UInt32 index, PROPID propID, PROPVAR
       case kpidName: prop = ss.Name; break;
       case kpidSize: prop = ss.Size; break;
       case kpidPackSize:
-        #ifdef UNDER_CE
-        prop = ss.Size;
-        #else
         if (!ss.PackSize_Defined)
         {
           ss.PackSize_Defined = true;
@@ -210,7 +205,6 @@ Z7_COM7F_IMF(CAltStreamsFolder::GetProperty(UInt32 index, PROPID propID, PROPVAR
             ss.PackSize = ss.Size;
         }
         prop = ss.PackSize;
-        #endif
         break;
     }
   }
@@ -244,14 +238,10 @@ Z7_COM7F_IMF2(Int32, CAltStreamsFolder::CompareItems(UInt32 index1, UInt32 index
       return MyCompare(ss1.Size, ss2.Size);
     case kpidPackSize:
     {
-      #ifdef UNDER_CE
-      return MyCompare(ss1.Size, ss2.Size);
-      #else
       // PackSize can be undefined here
       return MyCompare(
           ss1.PackSize,
           ss2.PackSize);
-      #endif
     }
     
     case kpidExtension:

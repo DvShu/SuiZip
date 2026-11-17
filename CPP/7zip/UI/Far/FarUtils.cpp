@@ -5,9 +5,7 @@
 // #include "../../../Common/IntToString.h"
 #include "../../../Common/StringConvert.h"
 
-#ifndef UNDER_CE
 #include "../../../Windows/Console.h"
-#endif
 #include "../../../Windows/WinDefs.h"
 #include "../../../Windows/ErrorMsg.h"
 
@@ -493,9 +491,6 @@ int ShowSysErrorMessage(DWORD errorCode, const wchar_t *name)
 
 bool WasEscPressed()
 {
-  #ifdef UNDER_CE
-  return false;
-  #else
   NConsole::CIn inConsole;
   HANDLE handle = ::GetStdHandle(STD_INPUT_HANDLE);
   if (handle == INVALID_HANDLE_VALUE)
@@ -517,7 +512,6 @@ bool WasEscPressed()
         event.Event.KeyEvent.wVirtualKeyCode == VK_ESCAPE)
       return true;
   }
-  #endif
 }
 
 }

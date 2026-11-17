@@ -36,9 +36,6 @@ static const unsigned kCurrentFileNameSizeLimit = 72;
 void COverwriteDialog::ReduceString(UString &s)
 {
   const unsigned size =
-#ifdef UNDER_CE
-      !_isBig ? 30 : // kCurrentFileNameSizeLimit2
-#endif
       kCurrentFileNameSizeLimit;
 
   if (s.Len() > size)

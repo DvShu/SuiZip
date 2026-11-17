@@ -1047,14 +1047,9 @@ static void MakeCheckOrder(CCodecs *codecs,
   }
 }
 
-#ifdef UNDER_CE
-  static const unsigned kNumHashBytes = 1;
-  #define HASH_VAL(buf) ((buf)[0])
-#else
   static const unsigned kNumHashBytes = 2;
   // #define HASH_VAL(buf) ((buf)[0] | ((UInt32)(buf)[1] << 8))
   #define HASH_VAL(buf) GetUi16(buf)
-#endif
 
 static bool IsExeExt(const UString &ext)
 {

@@ -2,9 +2,6 @@
 
 #include "StdAfx.h"
 
-#ifdef Z7_OLD_WIN_SDK
-#include <ShlGuid.h>
-#endif
 
 #include "../../../Common/IntToString.h"
 #include "../../../Common/StringConvert.h"
@@ -31,19 +28,11 @@ static const UINT kCloseMessage = WM_APP + 1;
 // we can't use WM_USER, since WM_USER can be used by standard Windows procedure for Dialog
 
 static const UINT kTimerElapse =
-  #ifdef UNDER_CE
-  500
-  #else
   200
-  #endif
   ;
 
 static const UINT kCreateDelay =
-  #ifdef UNDER_CE
-  2500
-  #else
   500
-  #endif
   ;
 
 static const DWORD kPauseSleepTime = 100;
@@ -420,9 +409,6 @@ bool CProgressDialog::OnInit()
     SetIcon(ICON_BIG, icon);
   }
   _timer = SetTimer(kTimerID, kTimerElapse);
-  #ifdef UNDER_CE
-  Foreground();
-  #endif
 
   CheckNeedClose();
 
@@ -1151,9 +1137,7 @@ void CProgressDialog::SetPriorityText()
 void CProgressDialog::OnPriorityButton()
 {
   _background = !_background;
-  #ifndef UNDER_CE
   SetPriorityClass(GetCurrentProcess(), _background ? IDLE_PRIORITY_CLASS : NORMAL_PRIORITY_CLASS);
-  #endif
   SetPriorityText();
 }
 

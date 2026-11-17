@@ -231,18 +231,6 @@ Z7_COM7F_IMF(CInFileStream::Read(void *data, UInt32 size, UInt32 *processedSize)
   }
 }
 
-#ifdef UNDER_CE
-Z7_COM7F_IMF(CStdInFileStream::Read(void *data, UInt32 size, UInt32 *processedSize))
-{
-  size_t s2 = fread(data, 1, size, stdin);
-  int error = ferror(stdin);
-  if (processedSize)
-    *processedSize = s2;
-  if (s2 <= size && error == 0)
-    return S_OK;
-  return E_FAIL;
-}
-#else
 Z7_COM7F_IMF(CStdInFileStream::Read(void *data, UInt32 size, UInt32 *processedSize))
 {
   // printf("\nCStdInFileStream::Read size = %d\n", (unsigned)size);
@@ -299,7 +287,6 @@ Z7_COM7F_IMF(CStdInFileStream::Read(void *data, UInt32 size, UInt32 *processedSi
   #endif
 }
   
-#endif
 
 
 /*
@@ -861,17 +848,6 @@ HRESULT COutFileStream::GetSize(UInt64 *size)
   return ConvertBoolToHRESULT(File.GetLength(*size));
 }
 
-#ifdef UNDER_CE
-
-Z7_COM7F_IMF(CStdOutFileStream::Write(const void *data, UInt32 size, UInt32 *processedSize))
-{
-  size_t s2 = fwrite(data, 1, size, stdout);
-  if (processedSize)
-    *processedSize = s2;
-  return (s2 == size) ? S_OK : E_FAIL;
-}
-
-#else
 
 Z7_COM7F_IMF(CStdOutFileStream::Write(const void *data, UInt32 size, UInt32 *processedSize))
 {
@@ -919,5 +895,3 @@ Z7_COM7F_IMF(CStdOutFileStream::Write(const void *data, UInt32 size, UInt32 *pro
   
   #endif
 }
-
-#endif

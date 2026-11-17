@@ -108,7 +108,7 @@ void NormalizeSlashes_in_FileName_for_OsPath(UString &name)
 
 
 bool HasTailSlash(const AString &name, UINT
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
     codePage
   #endif
   )
@@ -116,7 +116,7 @@ bool HasTailSlash(const AString &name, UINT
   if (name.IsEmpty())
     return false;
   char c;
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     if (codePage != CP_UTF8)
       c = *CharPrevExA((WORD)codePage, name, name.Ptr(name.Len()), 0);
     else

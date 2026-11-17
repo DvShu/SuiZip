@@ -47,10 +47,6 @@ void CExtDatabase::Read()
     FOR_VECTOR (i, exts)
     {
       const UString &ext = exts[i];
-      #ifdef UNDER_CE
-      if (ext == L"cab")
-        continue;
-      #endif
 
       Int32 iconIndex;
       CMyComBSTR iconPath;

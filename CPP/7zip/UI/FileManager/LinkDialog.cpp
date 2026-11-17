@@ -19,8 +19,6 @@
 
 #include "resource.h"
 
-extern bool g_SymLink_Supported;
-
 using namespace NWindows;
 using namespace NFile;
 
@@ -164,9 +162,7 @@ bool CLinkDialog::OnInit()
         _pathFromCombo.SetText(AnotherPath);
         _pathToCombo.SetText(FilePath);
         if (fi.IsDir())
-          linkType = g_SymLink_Supported ?
-              IDR_LINK_TYPE_SYM_DIR :
-              IDR_LINK_TYPE_JUNCTION;
+          linkType = IDR_LINK_TYPE_SYM_DIR;
         else
           linkType = IDR_LINK_TYPE_HARD;
       }

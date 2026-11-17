@@ -91,6 +91,11 @@ public:
 
   CBoolPair ElimDup;
 
+  #ifndef Z7_SFX
+  CBoolPair SmartExtract;
+  bool SmartExtractAddArcName;
+  #endif
+
   INT_PTR Create(HWND aWndParent = NULL)
   {
     #ifdef Z7_SFX
@@ -106,6 +111,10 @@ public:
     OverwriteMode_Force(false)
   {
     ElimDup.Val = true;
+    #ifndef Z7_SFX
+    SmartExtract.Val = true;
+    SmartExtractAddArcName = false;
+    #endif
   }
 
 };

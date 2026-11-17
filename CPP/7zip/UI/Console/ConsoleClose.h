@@ -7,12 +7,6 @@ namespace NConsoleClose {
 
 // class CCtrlBreakException {};
 
-#ifdef UNDER_CE
-
-inline bool TestBreakSignal() { return false; }
-struct CCtrlHandlerSetter {};
-
-#else
 
 extern unsigned g_BreakCounter;
 
@@ -32,7 +26,6 @@ public:
   ~CCtrlHandlerSetter();
 };
 
-#endif
 
 }
 

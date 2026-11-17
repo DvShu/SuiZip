@@ -26,52 +26,17 @@ namespace NSystem {
 
 #ifdef _WIN32
 
-/*
-note: returned value in 32-bit version can be limited by value 32.
-      while 64-bit version returns full value.
-GetMaximumProcessorCount(groupNumber) can return higher value than
-GetActiveProcessorCount(groupNumber) in some cases, because CPUs can be added.
-*/
-// typedef DWORD (WINAPI *Func_GetMaximumProcessorCount)(WORD GroupNumber);
-typedef DWORD (WINAPI *Func_GetActiveProcessorCount)(WORD GroupNumber);
-typedef WORD (WINAPI *Func_GetActiveProcessorGroupCount)(VOID);
-/*
-#if 0 && defined(ALL_PROCESSOR_GROUPS)
-#define MY_ALL_PROCESSOR_GROUPS   ALL_PROCESSOR_GROUPS
-#else
-#define MY_ALL_PROCESSOR_GROUPS   0xffff
-#endif
-*/
-
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-
 bool CCpuGroups::Load()
 {
   NumThreadsTotal = 0;
   GroupSizes.Clear();
-  const HMODULE hmodule = ::GetModuleHandleA("kernel32.dll");
-  // Is_Win11_Groups = GetProcAddress(hmodule, "SetThreadSelectedCpuSetMasks") != NULL;
-  const
-      Func_GetActiveProcessorGroupCount
-        fn_GetActiveProcessorGroupCount = Z7_GET_PROC_ADDRESS(
-      Func_GetActiveProcessorGroupCount, hmodule,
-          "GetActiveProcessorGroupCount");
-  const
-      Func_GetActiveProcessorCount
-        fn_GetActiveProcessorCount = Z7_GET_PROC_ADDRESS(
-      Func_GetActiveProcessorCount, hmodule,
-          "GetActiveProcessorCount");
-  if (!fn_GetActiveProcessorGroupCount ||
-      !fn_GetActiveProcessorCount)
-    return false;
-
-  const unsigned numGroups = fn_GetActiveProcessorGroupCount();
+  const unsigned numGroups = ::GetActiveProcessorGroupCount();
   if (numGroups == 0)
     return false;
   UInt32 sum = 0;
   for (unsigned i = 0; i < numGroups; i++)
   {
-    const UInt32 num = fn_GetActiveProcessorCount((WORD)i);
+    const UInt32 num = ::GetActiveProcessorCount((WORD)i);
     /*
     if (num == 0)
     {
@@ -208,85 +173,17 @@ UInt32 GetNumberOfProcessors()
 
 #ifdef _WIN32
 
-#ifndef UNDER_CE
 
-#if !defined(_WIN64) && \
-  (defined(__MINGW32_VERSION) || defined(Z7_OLD_WIN_SDK))
-
-typedef struct {
-  DWORD dwLength;
-  DWORD dwMemoryLoad;
-  DWORDLONG ullTotalPhys;
-  DWORDLONG ullAvailPhys;
-  DWORDLONG ullTotalPageFile;
-  DWORDLONG ullAvailPageFile;
-  DWORDLONG ullTotalVirtual;
-  DWORDLONG ullAvailVirtual;
-  DWORDLONG ullAvailExtendedVirtual;
-} MY_MEMORYSTATUSEX, *MY_LPMEMORYSTATUSEX;
-
-#else
-
-#define MY_MEMORYSTATUSEX MEMORYSTATUSEX
-#define MY_LPMEMORYSTATUSEX LPMEMORYSTATUSEX
-
-#endif
-
-typedef BOOL (WINAPI *Func_GlobalMemoryStatusEx)(MY_LPMEMORYSTATUSEX lpBuffer);
-
-#endif // !UNDER_CE
-
-  
 bool GetRamSize(size_t &size)
 {
   size = (size_t)sizeof(size_t) << 29;
 
-  #ifndef UNDER_CE
-    MY_MEMORYSTATUSEX stat;
-    stat.dwLength = sizeof(stat);
-  #endif
-  
-  #ifdef _WIN64
-    
-    if (!::GlobalMemoryStatusEx(&stat))
-      return false;
-    size = MyMin(stat.ullTotalVirtual, stat.ullTotalPhys);
-    return true;
-
-  #else
-    
-    #ifndef UNDER_CE
-      const
-      Func_GlobalMemoryStatusEx fn = Z7_GET_PROC_ADDRESS(
-      Func_GlobalMemoryStatusEx, ::GetModuleHandleA("kernel32.dll"),
-          "GlobalMemoryStatusEx");
-      if (fn && fn(&stat))
-      {
-        // (MY_MEMORYSTATUSEX::ullTotalVirtual) < 4 GiB in 32-bit mode
-        size_t size2 = (size_t)0 - 1;
-        if (size2 > stat.ullTotalPhys)
-            size2 = (size_t)stat.ullTotalPhys;
-        if (size2 > stat.ullTotalVirtual)
-            size2 = (size_t)stat.ullTotalVirtual;
-        size = size2;
-        return true;
-      }
-    #endif
-  
-    // On computers with more than 4 GB of memory:
-    //   new docs  : GlobalMemoryStatus can report (-1) value to indicate an overflow.
-    //   some old docs : GlobalMemoryStatus can report (modulo 4 GiB) value.
-    //                   (for example, if 5 GB total memory, it could report 1 GB).
-    // We don't want to get (modulo 4 GiB) value.
-    // So we use GlobalMemoryStatusEx() instead.
-    {
-      MEMORYSTATUS stat2;
-      stat2.dwLength = sizeof(stat2);
-      ::GlobalMemoryStatus(&stat2);
-      size = MyMin(stat2.dwTotalVirtual, stat2.dwTotalPhys);
-      return true;
-    }
-  #endif
+  MEMORYSTATUSEX stat;
+  stat.dwLength = sizeof(stat);
+  if (!::GlobalMemoryStatusEx(&stat))
+    return false;
+  size = MyMin(stat.ullTotalVirtual, stat.ullTotalPhys);
+  return true;
 }
   
 #else

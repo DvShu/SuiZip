@@ -201,15 +201,11 @@ NFileOperationReturnCode::EEnum CPlugin::GetFilesReal(struct PluginPanelItem *pa
       destPathU.Trim();
       if (destPathU.IsEmpty())
       {
-        #ifdef UNDER_CE
-        destPathU = "\\";
-        #else
         FString destPathF = us2fs(destPathU);
         if (!GetCurrentDir(destPathF))
           throw 318016;
         NName::NormalizeDirPathPrefix(destPathF);
         destPathU = fs2us(destPathF);
-        #endif
         break;
       }
       else

@@ -32,11 +32,7 @@ static const UInt32 k_decoderCompatibilityVersion = 2301;
 static const UInt32 k_NumFastBytes_ForHeaders = 273;
 static const UInt32 k_Level_ForHeaders = 5;
 static const UInt32 k_Dictionary_ForHeaders =
-  #ifdef UNDER_CE
-  1 << 18;
-  #else
   1 << 20;
-  #endif
 
 Z7_COM7F_IMF(CHandler::GetFileTimeType(UInt32 *type))
 {

@@ -23,14 +23,11 @@
 
 #include "../../../Windows/ErrorMsg.h"
 #include "../../../Windows/MemoryLock.h"
-#include "../../../Windows/NtCheck.h"
 #include "../../../Windows/System.h"
 
 #include "../../MyVersion.h"
 
-#ifndef UNDER_CE
 #include "../../../Windows/SecurityUtils.h"
-#endif
 
 #include "../GUI/ExtractRes.h"
 
@@ -66,9 +63,6 @@ bool g_LargePagesMode;
 bool g_LargePagesMode = false;
 // static bool g_OpenArchive = false;
 
-#ifdef UNDER_CE
-static bool g_Maximized = false;
-#endif
 
 extern
 size_t g_RAM_Size;
@@ -88,39 +82,7 @@ static UString g_ArcFormat;
 // HRESULT LoadGlobalCodecs();
 void FreeGlobalCodecs();
 
-#ifndef UNDER_CE
 
-#ifdef Z7_USE_DYN_ComCtl32Version
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-
-DWORD g_ComCtl32Version;
-
-static DWORD GetDllVersion(LPCTSTR dllName)
-{
-  DWORD dwVersion = 0;
-  const HMODULE hmodule = LoadLibrary(dllName);
-  if (hmodule)
-  {
-    const
-     DLLGETVERSIONPROC f_DllGetVersion = Z7_GET_PROC_ADDRESS(
-     DLLGETVERSIONPROC, hmodule,
-    "DllGetVersion");
-    if (f_DllGetVersion)
-    {
-      DLLVERSIONINFO dvi;
-      ZeroMemory(&dvi, sizeof(dvi));
-      dvi.cbSize = sizeof(dvi);
-      const HRESULT hr = f_DllGetVersion(&dvi);
-      if (SUCCEEDED(hr))
-        dwVersion = (DWORD)MAKELONG(dvi.dwMinorVersion, dvi.dwMajorVersion);
-    }
-    FreeLibrary(hmodule);
-  }
-  return dwVersion;
-}
-
-#endif
-#endif
 
 bool g_IsSmallScreen = false;
 
@@ -206,15 +168,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 static const wchar_t * const kWindowClass = L"7-Zip::FM";
 
-#ifdef UNDER_CE
-#define WS_OVERLAPPEDWINDOW ( \
-  WS_OVERLAPPED   | \
-  WS_CAPTION      | \
-  WS_SYSMENU      | \
-  WS_THICKFRAME   | \
-  WS_MINIMIZEBOX  | \
-  WS_MAXIMIZEBOX)
-#endif
 
 
 /*
@@ -279,11 +232,7 @@ static BOOL InitInstance(int nCmdShow)
   wc.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
 
   wc.lpszMenuName =
-    #ifdef UNDER_CE
-    0
-    #else
     MAKEINTRESOURCEW(IDM_MENU)
-    #endif
     ;
 
   wc.lpszClassName = kWindowClass;
@@ -312,7 +261,6 @@ static BOOL InitInstance(int nCmdShow)
     xSize = RECT_SIZE_X(info.rect);
     ySize = RECT_SIZE_Y(info.rect);
   }
-  #ifndef UNDER_CE
   else
   {
     RECT workArea;
@@ -326,7 +274,6 @@ static BOOL InitInstance(int nCmdShow)
       y = workArea.top + (workHeight - ySize) / 2;
     }
   }
-  #endif
 
 
   if (g_PanelsInfoDefined)
@@ -415,9 +362,7 @@ static BOOL InitInstance(int nCmdShow)
 
   if (nCmdShow == SW_SHOWNORMAL ||
       nCmdShow == SW_SHOW
-      #ifndef UNDER_CE
       || nCmdShow == SW_SHOWDEFAULT
-      #endif
       )
   {
     if (info.maximized)
@@ -426,12 +371,7 @@ static BOOL InitInstance(int nCmdShow)
       nCmdShow = SW_SHOWNORMAL;
   }
 
-#ifdef UNDER_CE
-  if (nCmdShow == SW_SHOWMAXIMIZED)
-    g_Maximized = true;
-#endif
 
-  #ifndef UNDER_CE
   WINDOWPLACEMENT placement;
   placement.length = sizeof(placement);
   if (wnd.GetPlacement(&placement))
@@ -442,7 +382,6 @@ static BOOL InitInstance(int nCmdShow)
     wnd.SetPlacement(&placement);
   }
   else
-  #endif
     wnd.Show(nCmdShow);
 
   return TRUE;
@@ -474,32 +413,6 @@ static void GetCommands(const UString &aCommandLine, UString &aCommands)
 }
 */
 
-#if defined(_WIN32) && !defined(_WIN64) && !defined(UNDER_CE)
-
-extern
-bool g_Is_Wow64;
-bool g_Is_Wow64;
-
-typedef BOOL (WINAPI *Func_IsWow64Process)(HANDLE, PBOOL);
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-
-static void Set_Wow64()
-{
-  g_Is_Wow64 = false;
-  const
-  Func_IsWow64Process fn = Z7_GET_PROC_ADDRESS(
-  Func_IsWow64Process, GetModuleHandleA("kernel32.dll"),
-      "IsWow64Process");
-  if (fn)
-  {
-    BOOL isWow;
-    if (fn(GetCurrentProcess(), &isWow))
-      g_Is_Wow64 = (isWow != FALSE);
-  }
-}
-
-#endif
-
 #if _MSC_VER > 1400 /* && _MSC_VER <= 1900 */
   // GetVersion was declared deprecated
   #pragma warning(disable : 4996)
@@ -511,24 +424,9 @@ static void Set_Wow64()
 bool IsLargePageSupported();
 bool IsLargePageSupported()
 {
-  #ifdef _WIN64
   return true;
-  #else
-
-  DWORD v = GetVersion();
-  // low byte is major version:
-  // next byte is minor version:
-  v = ((v & 0xff) << 8) | ((v >> 8) & 0xFF);
-  return (v > 0x501);
-  // if ((Byte)v < 5) return false;
-  // if ((Byte)v > 5) return true;
-  // return ((Byte)(v >> 8) > 1);
-  /* large pages work in 5.1 (XP-32bit) if it's (g_Is_Wow64) mode;
-     but here we don't enable them in (XP-32bit). */
-  #endif
 }
 
-#ifndef UNDER_CE
 
 static void SetMemoryLock()
 {
@@ -544,26 +442,6 @@ static void SetMemoryLock()
     g_LargePagesMode = NSecurity::EnablePrivilege_LockMemory();
   }
 }
-
-extern
-bool g_SymLink_Supported;
-bool g_SymLink_Supported = false;
-
-static void Set_SymLink_Supported()
-{
-  // g_SymLink_Supported = false;
-  const DWORD v = GetVersion();
-  // low byte is major version:
-  if ((Byte)v < 6)
-    return;
-  g_SymLink_Supported = true;
-  // if (g_SymLink_Supported)
-  {
-    NSecurity::EnablePrivilege_SymLink();
-  }
-}
-
-#endif
 
 /*
 static const int kNumSwitches = 1;
@@ -595,9 +473,6 @@ static void ErrorMessage(const char *s)
 }
 
 
-#if defined(_UNICODE) && !defined(_WIN64) && !defined(UNDER_CE)
-#define NT_CHECK_FAIL_ACTION ErrorMessage("Unsupported Windows version"); return 1;
-#endif
 
 static int WINAPI WinMain2(int nCmdShow)
 {
@@ -629,7 +504,6 @@ static int WINAPI WinMain2(int nCmdShow)
   #endif
   */
 
-  NT_CHECK
   #ifdef Z7_LARGE_PAGES
   z7_LargePage_Set(0, 0, 0);
   #endif
@@ -642,34 +516,19 @@ static int WINAPI WinMain2(int nCmdShow)
 
   InitCommonControls();
 
-#ifdef Z7_USE_DYN_ComCtl32Version
-  g_ComCtl32Version = ::GetDllVersion(TEXT("comctl32.dll"));
-  g_LVN_ITEMACTIVATE_Support = (g_ComCtl32Version >= MAKELONG(71, 4));
-#endif
-
-  #if defined(_WIN32) && !defined(_WIN64) && !defined(UNDER_CE)
-  Set_Wow64();
-  #endif
-
 
   g_IsSmallScreen = !NWindows::NControl::IsDialogSizeOK(200, 200);
 
   // OleInitialize is required for drag and drop.
-  #ifndef UNDER_CE
   OleInitialize(NULL);
-  #endif
   // Maybe needs CoInitializeEx also ?
   // NCOM::CComInitializer comInitializer;
 
   UString commandsString;
   // MessageBoxW(NULL, GetCommandLineW(), L"", 0);
 
-  #ifdef UNDER_CE
-  commandsString = GetCommandLineW();
-  #else
   UString programString;
   SplitStringToTwoStrings(GetCommandLineW(), programString, commandsString);
-  #endif
 
   commandsString.Trim();
   UString paramString, tailString;
@@ -749,9 +608,9 @@ static int WINAPI WinMain2(int nCmdShow)
   */
 
 
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   SetMemoryLock();
-  Set_SymLink_Supported();
+  NSecurity::EnablePrivilege_SymLink();
   #endif
 
   g_App.ReloadLangItems();
@@ -767,21 +626,6 @@ static int WINAPI WinMain2(int nCmdShow)
   OutputDebugStringW(L"After LoadGlobalCodecs");
   */
 
-  #ifndef _UNICODE
-  if (g_IsNT)
-  {
-    HACCEL hAccels = LoadAcceleratorsW(g_hInstance, MAKEINTRESOURCEW(IDR_ACCELERATOR1));
-    while (GetMessageW(&msg, NULL, 0, 0))
-    {
-      if (TranslateAcceleratorW(g_HWND, hAccels, &msg) == 0)
-      {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
-      }
-    }
-  }
-  else
-  #endif
   {
     HACCEL hAccels = LoadAccelerators(g_hInstance, MAKEINTRESOURCE(IDR_ACCELERATOR1));
     while (GetMessage(&msg, NULL, 0, 0))
@@ -801,18 +645,12 @@ static int WINAPI WinMain2(int nCmdShow)
   FreeGlobalCodecs();
 
   g_HWND = NULL;
-  #ifndef UNDER_CE
   OleUninitialize();
-  #endif
   return (int)msg.wParam;
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */,
-    #ifdef UNDER_CE
-    LPWSTR
-    #else
     LPSTR
-    #endif
     /* lpCmdLine */, int nCmdShow)
 {
   g_hInstance = hInstance;
@@ -824,14 +662,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */,
       #ifdef _WIN32
       My_SetDefaultDllDirectories();
       #endif
-      #ifndef UNDER_CE
       UString program, arguments, command, changes;
       SplitStringToTwoStrings(GetCommandLineW(), program, arguments);
       arguments.Trim();
       SplitStringToTwoStrings(arguments, command, changes);
       if (command == kApplyAllUsersAssociations)
         return (int)ApplyAllUsersAssociations(changes);
-      #endif
       return WinMain2(nCmdShow);
     }
     catch (...)
@@ -883,13 +719,6 @@ static void SaveWindowInfo(HWND aWnd)
 {
   CWindowInfo info;
 
-  #ifdef UNDER_CE
-  
-  if (!::GetWindowRect(aWnd, &info.rect))
-    return;
-  info.maximized = g_Maximized;
-  
-  #else
   
   WINDOWPLACEMENT placement;
   placement.length = sizeof(placement);
@@ -898,7 +727,6 @@ static void SaveWindowInfo(HWND aWnd)
   info.rect = placement.rcNormalPosition;
   info.maximized = BOOLToBool(::IsZoomed(aWnd));
   
-  #endif
   
   info.numPanels = g_App.NumPanels;
   info.currentPanel = g_App.LastFocusedPanel;
@@ -924,7 +752,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
   switch (message)
   {
-    #if defined(_UNICODE) && !defined(UNDER_CE)
     case WM_MEASUREITEM:
     case WM_DRAWITEM:
     case WM_MENUCHAR:
@@ -934,7 +761,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return result;
       break;
     }
-    #endif
 
     case WM_COMMAND:
     {
@@ -1123,6 +949,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
       break;
     }
 
+    case WM_DPICHANGED:
+    {
+      const RECT &bounds = *(const RECT *)lParam;
+      ::SetWindowPos(hWnd, NULL, bounds.left, bounds.top,
+          RECT_SIZE_X(bounds), RECT_SIZE_Y(bounds), SWP_NOZORDER | SWP_NOACTIVATE);
+      g_App.OnDpiChanged(LOWORD(wParam));
+      return 0;
+    }
+
     case WM_SIZE:
     {
       if (g_CanChangeSplitter)
@@ -1133,9 +968,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         g_CanChangeSplitter = true;
       }
       
-#ifdef UNDER_CE
-      g_Maximized = (wParam == SIZE_MAXIMIZED) || (wParam == SIZE_MAXSHOW);
-#endif
 
       g_App.MoveSubWindows();
       /*
@@ -1198,11 +1030,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     */
   }
-  #ifndef _UNICODE
-  if (g_IsNT)
-    return DefWindowProcW(hWnd, message, wParam, lParam);
-  else
-  #endif
     return DefWindowProc(hWnd, message, wParam, lParam);
 
 }
@@ -1212,11 +1039,9 @@ static int Window_GetRealHeight(NWindows::CWindow &w)
   RECT rect;
   w.GetWindowRect(&rect);
   int res = RECT_SIZE_Y(rect);
-  #ifndef UNDER_CE
   WINDOWPLACEMENT placement;
   if (w.GetPlacement(&placement))
     res += placement.rcNormalPosition.top;
-  #endif
   return res;
 }
 
@@ -1232,21 +1057,10 @@ void CApp::MoveSubWindows()
     return;
   int headerSize = 0;
 
-  #ifdef UNDER_CE
-  _commandBar.AutoSize();
-  {
-    _commandBar.Show(true); // maybe we need it for
-    headerSize += _commandBar.Height();
-  }
-  #endif
 
   if (_toolBar)
   {
     _toolBar.AutoSize();
-    #ifdef UNDER_CE
-    int h2 = Window_GetRealHeight(_toolBar);
-    _toolBar.Move(0, headerSize, xSize, h2);
-    #endif
     headerSize += Window_GetRealHeight(_toolBar);
   }
   

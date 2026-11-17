@@ -14,14 +14,19 @@
   this file can set the following macros:
     Z7_LARGE_PAGES 1
     Z7_LONG_PATH 1
-    Z7_WIN32_WINNT_MIN  0x0500 (or higher) : we require at least win2000+ for 7-Zip
-    _WIN32_WINNT        0x0500 (or higher)
+    Z7_WIN32_WINNT_MIN  0x0A00 (Windows 10)
+    _WIN32_WINNT        0x0A00 (or higher)
     WINVER  _WIN32_WINNT
     UNICODE 1
     _UNICODE 1
 */
 
 #include "Compiler.h"
+
+#if (defined(_WIN32) && !defined(_WIN64)) || \
+    (defined(__SIZEOF_POINTER__) && __SIZEOF_POINTER__ < 8)
+  #error SuiZip requires a 64-bit target.
+#endif
 
 #ifdef _MSC_VER
 // #pragma warning(disable : 4206) // nonstandard extension used : translation unit is empty
@@ -30,27 +35,25 @@
 #endif
 #endif
 
-/*
-// for debug:
-#define UNICODE 1
-#define _UNICODE 1
-#define  _WIN32_WINNT  0x0500  // win2000
-#ifndef WINVER
-  #define WINVER  _WIN32_WINNT
-#endif
-*/
-
 #ifndef Z7_LARGE_PAGES
-#if !defined(Z7_NO_LARGE_PAGES) && !defined(UNDER_CE)
+#ifndef Z7_NO_LARGE_PAGES
 #define Z7_LARGE_PAGES 1
 #endif
 #endif
 
 #ifdef _WIN32
-/*
-  this "Precomp.h" file must be included before <windows.h>,
-  if we want to define _WIN32_WINNT before <windows.h>.
-*/
+
+#if defined(UNDER_CE) || defined(Z7_OLD_WIN_SDK) || defined(Z7_NO_UNICODE)
+  #error SuiZip requires the Unicode Windows 10 SDK target or newer.
+#endif
+
+#define Z7_WIN32_WINNT_MIN 0x0A00
+
+#if (defined(_WIN32_WINNT) && _WIN32_WINNT < Z7_WIN32_WINNT_MIN) || \
+    (defined(WINVER) && WINVER < Z7_WIN32_WINNT_MIN) || \
+    (defined(NTDDI_VERSION) && NTDDI_VERSION < 0x0A000000)
+  #error SuiZip requires Windows 10 or newer.
+#endif
 
 #ifndef Z7_LONG_PATH
 #ifndef Z7_NO_LONG_PATH
@@ -64,47 +67,15 @@
 #endif
 #endif
 
-// we don't change macros if included after <windows.h>
-#ifndef _WINDOWS_
-
-#ifndef Z7_WIN32_WINNT_MIN
-  #if defined(_M_ARM64) || defined(__aarch64__)
-    // #define Z7_WIN32_WINNT_MIN  0x0a00  // win10
-    #define Z7_WIN32_WINNT_MIN  0x0600  // vista
-  #elif defined(_M_ARM) && defined(_M_ARMT) && defined(_M_ARM_NT)
-    // #define Z7_WIN32_WINNT_MIN  0x0602  // win8
-    #define Z7_WIN32_WINNT_MIN  0x0600  // vista
-  #elif defined(_M_X64) || defined(_M_AMD64) || defined(__x86_64__) || defined(_M_IA64)
-    #define Z7_WIN32_WINNT_MIN  0x0503  // win2003
-  // #elif defined(_M_IX86) || defined(__i386__)
-  //   #define Z7_WIN32_WINNT_MIN  0x0500  // win2000
-  #else // x86 and another(old) systems
-    #define Z7_WIN32_WINNT_MIN  0x0500  // win2000
-    // #define Z7_WIN32_WINNT_MIN  0x0502  // win2003 // for debug
-  #endif
-#endif // Z7_WIN32_WINNT_MIN
-
-
-#ifndef Z7_DO_NOT_DEFINE_WIN32_WINNT
-#ifdef _WIN32_WINNT
-  // #error Stop_Compiling_Bad_WIN32_WINNT
-#else
-  #ifndef Z7_NO_DEFINE_WIN32_WINNT
+#ifndef _WIN32_WINNT
 Z7_DIAGNOSTIC_IGNORE_BEGIN_RESERVED_MACRO_IDENTIFIER
-    #define _WIN32_WINNT  Z7_WIN32_WINNT_MIN
+#define _WIN32_WINNT Z7_WIN32_WINNT_MIN
 Z7_DIAGNOSTIC_IGNORE_END_RESERVED_MACRO_IDENTIFIER
-  #endif
-#endif // _WIN32_WINNT
+#endif
 
 #ifndef WINVER
   #define WINVER  _WIN32_WINNT
 #endif
-#endif // Z7_DO_NOT_DEFINE_WIN32_WINNT
-
-
-#ifndef _MBCS
-#ifndef Z7_NO_UNICODE
-// UNICODE and _UNICODE are used by <windows.h> and by 7-zip code.
 
 #ifndef UNICODE
 #define UNICODE 1
@@ -115,12 +86,6 @@ Z7_DIAGNOSTIC_IGNORE_BEGIN_RESERVED_MACRO_IDENTIFIER
 #define _UNICODE 1
 Z7_DIAGNOSTIC_IGNORE_END_RESERVED_MACRO_IDENTIFIER
 #endif
-
-#endif // Z7_NO_UNICODE
-#endif // _MBCS
-#endif // _WINDOWS_
-
-// #include "7zWindows.h"
 
 #endif // _WIN32
 

@@ -872,7 +872,7 @@ int Z7_CDECL main(int numargs, char *args[])
     return 1;
   }
 
-  #if defined(_WIN32) && !defined(USE_WINDOWS_FILE) && !defined(UNDER_CE)
+  #if defined(_WIN32) && !defined(USE_WINDOWS_FILE)
   g_FileCodePage = AreFileApisANSI() ? CP_ACP : CP_OEMCP;
   #endif
 
@@ -883,11 +883,7 @@ int Z7_CDECL main(int numargs, char *args[])
 
   {
     WRes wres =
-    #ifdef UNDER_CE
-      InFile_OpenW(&archiveStream.file, L"\test.7z"); // change it
-    #else
       InFile_Open(&archiveStream.file, args[2]);
-    #endif
     if (wres != 0)
     {
       PrintError_WRes("cannot open input file", wres);

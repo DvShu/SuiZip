@@ -18,28 +18,6 @@ BEGIN
               m, m + 53, xc, (yc - 53)
 END
 
-#ifdef UNDER_CE
-
-#undef m
-#undef xc
-#undef yc
-
-#define m 4
-#define xc (SMALL_PAGE_SIZE_X + 8)
-#define yc (128 + 8)
-
-IDD_SYSTEM_2  DIALOG MY_PAGE_POSTFIX
-CAPTION "System"
-BEGIN
-  LTEXT       "", IDT_SYSTEM_ASSOCIATE, m, m, xc, 8
-  LTEXT       "Toggle selected types, or all types if none are selected.", IDT_SYSTEM_TOGGLE_HELP, m, m + 11, xc, 18
-  PUSHBUTTON  "Toggle associations", IDB_SYSTEM_CURRENT, m, m + 32, xc, bys
-  CONTROL     "List1", IDL_SYSTEM_ASSOCIATE, "SysListView32",
-              LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SHAREIMAGELISTS | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,
-              m, m + 53, xc, (yc - 53)
-END
-
-#endif
 
 STRINGTABLE
 BEGIN

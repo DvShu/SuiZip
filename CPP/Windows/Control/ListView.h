@@ -22,9 +22,7 @@ public:
 
   void SetUnicodeFormat()
   {
-    #ifndef UNDER_CE
     ListView_SetUnicodeFormat(_window, TRUE);
-    #endif
   }
  
   bool DeleteAllItems() { return BOOLToBool(ListView_DeleteAllItems(_window)); }

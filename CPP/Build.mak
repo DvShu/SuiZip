@@ -1,9 +1,9 @@
-LIBS = $(LIBS) oleaut32.lib ole32.lib
-
-# CFLAGS = $(CFLAGS) -DZ7_NO_UNICODE
-!IFNDEF MY_NO_UNICODE
-# CFLAGS = $(CFLAGS) -DUNICODE -D_UNICODE
+!IF "$(PLATFORM)" == "x86" || "$(PLATFORM)" == "arm" || "$(PLATFORM)" == "Win32"
+!ERROR SuiZip requires a 64-bit target.
 !ENDIF
+
+LIBS = $(LIBS) oleaut32.lib ole32.lib
+RFLAGS = $(RFLAGS) -dWINVER=0x0A00 -d_WIN32_WINNT=0x0A00
 
 !IF "$(CC)" != "clang-cl"
 # for link time code generation:
@@ -25,39 +25,24 @@ O=o
 # LFLAGS = $(LFLAGS) /guard:cf
 
 
-!IF "$(PLATFORM)" == "x64"
-MY_ML = ml64 -WX
-#-Dx64
-!ELSEIF "$(PLATFORM)" == "arm64"
+!IF "$(PLATFORM)" == "arm64"
 MY_ML = armasm64
-!ELSEIF "$(PLATFORM)" == "arm"
-MY_ML = armasm -WX
 !ELSE
-MY_ML = ml -WX
-# -DABI_CDECL
+MY_ML = ml64 -WX
 !ENDIF
 
 # MY_ML = "$(MY_ML) -Fl$O\asm\
 
 
 !IFDEF UNDER_CE
-RFLAGS = $(RFLAGS) -dUNDER_CE
-!IFDEF MY_CONSOLE
-LFLAGS = $(LFLAGS) /ENTRY:mainACRTStartup
+!ERROR SuiZip requires Windows 10 or newer.
 !ENDIF
-!ELSE
-!IFDEF OLD_COMPILER
-LFLAGS = $(LFLAGS) -OPT:NOWIN98
-!ENDIF
-!IF "$(PLATFORM)" != "arm" && "$(PLATFORM)" != "arm64"
+!IF "$(PLATFORM)" != "arm64"
 CFLAGS = $(CFLAGS) -Gr
 !ENDIF
 LIBS = $(LIBS) user32.lib advapi32.lib shell32.lib
-!ENDIF
 
-!IF "$(PLATFORM)" == "arm"
-COMPL_ASM = $(MY_ML) $** $O/$(*B).obj
-!ELSEIF "$(PLATFORM)" == "arm64"
+!IF "$(PLATFORM)" == "arm64"
 COMPL_ASM = $(MY_ML) $** $O/$(*B).obj
 !ELSE
 COMPL_ASM = $(MY_ML) -c -Fo$O/ $**
@@ -120,9 +105,6 @@ MP_NPROC = $(NUMBER_OF_PROCESSORS)
 !ENDIF
 CFLAGS = $(CFLAGS) -MP$(MP_NPROC)
 !ENDIF
-!IFNDEF PLATFORM
-# CFLAGS = $(CFLAGS) -arch:IA32
-!ENDIF
 !ENDIF
 
 !ENDIF
@@ -130,12 +112,6 @@ CFLAGS = $(CFLAGS) -MP$(MP_NPROC)
 
 !IFDEF MY_CONSOLE
 CFLAGS = $(CFLAGS) -D_CONSOLE
-!ENDIF
-
-!IFNDEF UNDER_CE
-!IF "$(PLATFORM)" == "arm"
-CFLAGS = $(CFLAGS) -D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE
-!ENDIF
 !ENDIF
 
 !IF "$(PLATFORM)" == "x64"
@@ -154,7 +130,7 @@ LFLAGS = $(LFLAGS) /LARGEADDRESSAWARE
 !IFDEF DEF_FILE
 LFLAGS = $(LFLAGS) -DLL -DEF:$(DEF_FILE)
 !ELSE
-!IF defined(MY_FIXED) && "$(PLATFORM)" != "arm" && "$(PLATFORM)" != "arm64"
+!IF defined(MY_FIXED) && "$(PLATFORM)" != "arm64"
 LFLAGS = $(LFLAGS) /FIXED
 !ELSE
 LFLAGS = $(LFLAGS) /FIXED:NO
@@ -168,25 +144,13 @@ LFLAGS = $(LFLAGS) /FIXED:NO
 !ENDIF
 
 !IFNDEF DEF_FILE
-!IF "$(PLATFORM)" == "x86" || "$(PLATFORM)" == "arm"
-LFLAGS = $(LFLAGS) /STACK:2097152
-!ELSE IF "$(PLATFORM)" == "x64" || "$(PLATFORM)" == "arm64" || "$(PLATFORM)" == "ia64"
 LFLAGS = $(LFLAGS) /STACK:8388608
 !ENDIF
-!ENDIF
-
-# !IF "$(PLATFORM)" == "x64"
-
-!IFDEF SUB_SYS_VER
-
-MY_SUB_SYS_VER=5.02
 
 !IFDEF MY_CONSOLE
-LFLAGS = $(LFLAGS) /SUBSYSTEM:console,$(MY_SUB_SYS_VER)
+LFLAGS = $(LFLAGS) /SUBSYSTEM:CONSOLE,10.00
 !ELSE
-LFLAGS = $(LFLAGS) /SUBSYSTEM:windows,$(MY_SUB_SYS_VER)
-!ENDIF
-
+LFLAGS = $(LFLAGS) /SUBSYSTEM:WINDOWS,10.00
 !ENDIF
 
 

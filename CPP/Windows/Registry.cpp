@@ -5,14 +5,8 @@
 #include <wchar.h>
 // #include <stdio.h>
 
-#ifndef _UNICODE
-#include "../Common/StringConvert.h"
-#endif
 #include "Registry.h"
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 namespace NWindows {
 namespace NRegistry {
@@ -135,15 +129,6 @@ LONG CKey::DeleteValue(LPCTSTR name) throw()
   return ::RegDeleteValue(_object, name);
 }
 
-#ifndef _UNICODE
-LONG CKey::DeleteValue(LPCWSTR name)
-{
-  MY_ASSUME(_object != NULL);
-  if (g_IsNT)
-    return ::RegDeleteValueW(_object, name);
-  return DeleteValue(name == NULL ? NULL : (LPCSTR)GetSystemString(name));
-}
-#endif
 
 LONG CKey::SetValue(LPCTSTR name, UInt32 value) throw()
 {
@@ -178,21 +163,6 @@ LONG CKey::SetValue(LPCTSTR name, const CSysString &value)
 }
 */
 
-#ifndef _UNICODE
-
-LONG CKey::SetValue(LPCWSTR name, LPCWSTR value)
-{
-  MYASSERT(value != NULL);
-  MY_ASSUME(_object != NULL);
-  if (g_IsNT)
-    return RegSetValueExW(_object, name, 0, REG_SZ,
-        (const BYTE *)value, (DWORD)(((DWORD)wcslen(value) + 1) * sizeof(wchar_t)));
-  return SetValue(name == NULL ? NULL :
-        (LPCSTR)GetSystemString(name),
-        (LPCSTR)GetSystemString(value));
-}
-
-#endif
 
 
 LONG CKey::SetValue(LPCTSTR name, const void *value, UInt32 size) throw()
@@ -311,55 +281,6 @@ LONG CKey::QueryValue(LPCTSTR name, CSysString &value)
 }
 
 
-#ifndef _UNICODE
-
-LONG CKey::QueryValue(LPCWSTR name, UString &value)
-{
-  value.Empty();
-  LONG res = ERROR_SUCCESS;
-  if (g_IsNT)
-  {
-    DWORD size_prev = 3 * sizeof(wchar_t);
-    for (unsigned i = 0; i < 2 + 2; i++)
-    {
-      DWORD type = 0;
-      DWORD size = size_prev;
-      {
-        LPBYTE buf = (LPBYTE)value.GetBuf(size / sizeof(wchar_t));
-        res = RegQueryValueExW(_object, name, NULL, &type,
-            size == 0 ? NULL : buf, &size);
-      }
-      if (res == ERROR_SUCCESS || res == ERROR_MORE_DATA)
-      {
-        if (type != REG_SZ && type != REG_EXPAND_SZ)
-        {
-          res = ERROR_UNSUPPORTED_TYPE;
-          size = 0;
-        }
-      }
-      else
-        size = 0;
-      if (size > size_prev)
-      {
-        size_prev = size;
-        size = 0;
-        res = ERROR_MORE_DATA;
-      }
-      value.ReleaseBuf_CalcLen(size / sizeof(wchar_t));
-      if (res != ERROR_MORE_DATA)
-        return res;
-    }
-  }
-  else
-  {
-    AString vTemp;
-    res = QueryValue(name == NULL ? NULL : (LPCSTR)GetSystemString(name), vTemp);
-    value = GetUnicodeString(vTemp);
-  }
-  return res;
-}
-
-#endif
 
 
 LONG CKey::QueryValue_Binary(LPCTSTR name, CByteBuffer &value)

@@ -78,21 +78,10 @@ public:
   
   int GetItemCount() const
   {
-    #ifdef UNDER_CE
-    for (unsigned i = 0;; i++)
-    {
-      CMenuItem item;
-      item.fMask = MIIM_STATE;
-      if (!GetItem(i, true, item))
-        return (int)i;
-    }
-    #else
     return GetMenuItemCount(_menu);
-    #endif
   }
 
   HMENU GetSubMenu(int pos) const { return ::GetSubMenu(_menu, pos); }
-  #ifndef UNDER_CE
   /*
   bool GetItemString(UINT idItem, UINT flag, CSysString &result)
   {
@@ -107,7 +96,6 @@ public:
   */
   UINT GetItemID(int pos) const { return ::GetMenuItemID(_menu, pos);   }
   UINT GetItemState(UINT id, UINT flags)  const { return ::GetMenuState(_menu, id, flags);   }
-  #endif
   
   bool GetItemInfo(UINT itemIndex, bool byPosition, LPMENUITEMINFO itemInfo) const
     { return BOOLToBool(::GetMenuItemInfo(_menu, itemIndex, BoolToBOOL(byPosition), itemInfo)); }
@@ -120,10 +108,8 @@ public:
   bool Insert(UINT position, UINT flags, UINT_PTR idNewItem, LPCTSTR newItem)
     { return BOOLToBool(::InsertMenu(_menu, position, flags, idNewItem, newItem)); }
 
-  #ifndef UNDER_CE
   bool InsertItem(UINT itemIndex, bool byPosition, LPCMENUITEMINFO itemInfo)
     { return BOOLToBool(::InsertMenuItem(_menu, itemIndex, BoolToBOOL(byPosition), itemInfo)); }
-  #endif
 
   bool RemoveItem(UINT item, UINT flags) { return BOOLToBool(::RemoveMenu(_menu, item, flags)); }
   void RemoveAllItemsFrom(UINT index) { while (RemoveItem(index, MF_BYPOSITION)); }

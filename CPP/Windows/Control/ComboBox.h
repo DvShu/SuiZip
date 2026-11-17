@@ -49,7 +49,6 @@ public:
   void ShowDropDown(bool show = true) { SendMsg(CB_SHOWDROPDOWN, show ? TRUE : FALSE, 0);  }
 };
 
-#ifndef UNDER_CE
 
 class CComboBoxEx: public CComboBox
 {
@@ -72,7 +71,6 @@ public:
   HIMAGELIST SetImageList(HIMAGELIST imageList) { return (HIMAGELIST)SendMsg(CBEM_SETIMAGELIST, 0, (LPARAM)imageList); }
 };
 
-#endif
 
 }}
 

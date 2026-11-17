@@ -12,20 +12,9 @@
 // for old mingw
 #include <ddk/ntddk.h>
 #else
-#ifndef Z7_OLD_WIN_SDK
   #if !defined(_M_IA64)
     #include <winternl.h>
   #endif
-#else
-typedef LONG NTSTATUS;
-typedef struct _IO_STATUS_BLOCK {
-    union {
-        NTSTATUS Status;
-        PVOID Pointer;
-    };
-    ULONG_PTR Information;
-} IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
-#endif
 #endif
 #endif // _WIN32
 
@@ -52,9 +41,6 @@ HRESULT GetLastError_noZero_HRESULT()
 
 #ifdef _WIN32
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 #if defined(_WIN32_WINNT) && (_WIN32_WINNT >= 0x0500) && !defined(_M_IA64)
 #define Z7_WIN_NTSTATUS  NTSTATUS
@@ -141,14 +127,6 @@ bool CFileBase::Create(CFSTR path, DWORD desiredAccess,
   IsDeviceFile = false;
   #endif
 
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    _handle = ::CreateFile(fs2fas(path), desiredAccess, shareMode,
-        (LPSECURITY_ATTRIBUTES)NULL, creationDisposition, flagsAndAttributes, (HANDLE)NULL);
-  }
-  else
-  #endif
   {
     IF_USE_MAIN_PATH
       _handle = ::CreateFileW(fs2us(path), desiredAccess, shareMode,
@@ -404,12 +382,6 @@ void CInFile::CalcDeviceSize(CFSTR s)
   Size = 0;
   if (_handle == INVALID_HANDLE_VALUE || !IsDeviceFile)
     return;
-  #ifdef UNDER_CE
-
-  SizeDefined = true;
-  Size = 128 << 20;
-  
-  #else
   
   PARTITION_INFORMATION partInfo;
   bool needCorrectSize = true;
@@ -480,7 +452,6 @@ void CInFile::CalcDeviceSize(CFSTR s)
   }
 
   // SeekToBegin();
-  #endif
 }
 
 // ((desiredAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA | GENERIC_WRITE)) == 0 &&

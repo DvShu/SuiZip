@@ -24,9 +24,6 @@ using namespace NWindows;
 using namespace NFile;
 using namespace NName;
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 enum EFolderOpType
 {
@@ -95,9 +92,6 @@ HRESULT CThreadFolderOperations::DoOperation(CPanel &panel, const UString &progr
   return Result;
 }
 
-#ifndef _UNICODE
-typedef int (WINAPI * Func_SHFileOperationW)(LPSHFILEOPSTRUCTW lpFileOp);
-#endif
 
 /*
 void CPanel::MessageBoxErrorForUpdate(HRESULT errorCode, UINT resourceID)
@@ -119,40 +113,10 @@ void CPanel::DeleteItems(bool NON_CE_VAR(toRecycleBin))
   CSelectedState state;
   SaveSelectedState(state);
 
-  #ifndef UNDER_CE
   // WM6 / SHFileOperationW doesn't ask user! So we use internal delete
   if (IsFSFolder() && toRecycleBin)
   {
     bool useInternalDelete = false;
-    #ifndef _UNICODE
-    if (!g_IsNT)
-    {
-      CDynamicBuffer<CHAR> buffer;
-      FOR_VECTOR (i, indices)
-      {
-        const AString path (GetSystemString(GetItemFullPath(indices[i])));
-        buffer.AddData(path, path.Len() + 1);
-      }
-      *buffer.GetCurPtrAndGrow(1) = 0;
-      SHFILEOPSTRUCTA fo;
-      fo.hwnd = GetParent();
-      fo.wFunc = FO_DELETE;
-      fo.pFrom = (const CHAR *)buffer;
-      fo.pTo = NULL;
-      fo.fFlags = 0;
-      if (toRecycleBin)
-        fo.fFlags |= FOF_ALLOWUNDO;
-      // fo.fFlags |= FOF_NOCONFIRMATION;
-      // fo.fFlags |= FOF_NOERRORUI;
-      // fo.fFlags |= FOF_SILENT;
-      // fo.fFlags |= FOF_WANTNUKEWARNING;
-      fo.fAnyOperationsAborted = FALSE;
-      fo.hNameMappings = NULL;
-      fo.lpszProgressTitle = NULL;
-      /* int res = */ ::SHFileOperationA(&fo);
-    }
-    else
-    #endif
     {
       CDynamicBuffer<WCHAR> buffer;
       unsigned maxLen = 0;
@@ -189,19 +153,7 @@ void CPanel::DeleteItems(bool NON_CE_VAR(toRecycleBin))
         fo.hNameMappings = NULL;
         fo.lpszProgressTitle = NULL;
         // int res;
-        #ifdef _UNICODE
         /* res = */ ::SHFileOperationW(&fo);
-        #else
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-        const
-        Func_SHFileOperationW
-           f_SHFileOperationW = Z7_GET_PROC_ADDRESS(
-        Func_SHFileOperationW, ::GetModuleHandleW(L"shell32.dll"),
-            "SHFileOperationW");
-        if (!f_SHFileOperationW)
-          return;
-        /* res = */ f_SHFileOperationW(&fo);
-        #endif
       }
     }
     /*
@@ -214,7 +166,6 @@ Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
       return;
     }
   }
-  #endif
  
   // DeleteItemsInternal
 

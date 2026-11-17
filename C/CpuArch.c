@@ -388,34 +388,6 @@ BoolInt CPU_Is_InOrder()
 #include "7zWindows.h"
 #endif
 
-#if !defined(MY_CPU_AMD64) && defined(_WIN32)
-
-/* for legacy SSE ia32: there is no user-space cpu instruction to check
-   that OS supports SSE register storing/restoring on context switches.
-   So we need some OS-specific function to check that it's safe to use SSE registers.
-*/
-
-Z7_FORCE_INLINE
-static BoolInt CPU_Sys_Is_SSE_Supported(void)
-{
-#ifdef _MSC_VER
-  #pragma warning(push)
-  #pragma warning(disable : 4996) // `GetVersion': was declared deprecated
-#endif
-  /* low byte is major version of Windows
-     We suppose that any Windows version since
-     Windows2000 (major == 5) supports SSE registers */
-  return (Byte)GetVersion() >= 5;
-#if defined(_MSC_VER)
-  #pragma warning(pop)
-#endif
-}
-#define CHECK_SYS_SSE_SUPPORT if (!CPU_Sys_Is_SSE_Supported()) return False;
-#else
-#define CHECK_SYS_SSE_SUPPORT
-#endif
-
-
 #if !defined(MY_CPU_AMD64)
 
 BoolInt CPU_IsSupported_CMOV(void)
@@ -429,7 +401,6 @@ BoolInt CPU_IsSupported_CMOV(void)
 BoolInt CPU_IsSupported_SSE(void)
 {
   UInt32 a[4];
-  CHECK_SYS_SSE_SUPPORT
   if (!x86cpuid_Func_1(&a[0]))
     return 0;
   return (BoolInt)(a[3] >> 25) & 1;
@@ -438,7 +409,6 @@ BoolInt CPU_IsSupported_SSE(void)
 BoolInt CPU_IsSupported_SSE2(void)
 {
   UInt32 a[4];
-  CHECK_SYS_SSE_SUPPORT
   if (!x86cpuid_Func_1(&a[0]))
     return 0;
   return (BoolInt)(a[3] >> 26) & 1;
@@ -450,7 +420,6 @@ BoolInt CPU_IsSupported_SSE2(void)
 static UInt32 x86cpuid_Func_1_ECX(void)
 {
   UInt32 a[4];
-  CHECK_SYS_SSE_SUPPORT
   if (!x86cpuid_Func_1(&a[0]))
     return 0;
   return a[2];
@@ -473,7 +442,6 @@ BoolInt CPU_IsSupported_SSE41(void)
 
 BoolInt CPU_IsSupported_SHA(void)
 {
-  CHECK_SYS_SSE_SUPPORT
 
   if (z7_x86_cpuid_GetMaxFunc() < 7)
     return False;

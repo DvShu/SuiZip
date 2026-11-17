@@ -11,7 +11,6 @@
 #include "../../../Common/StdOutStream.h"
 
 #include "../../../Windows/ErrorMsg.h"
-#include "../../../Windows/NtCheck.h"
 
 #include "../Common/ArchiveCommandLine.h"
 #include "../Common/ExitCode.h"
@@ -53,9 +52,6 @@ static void PrintError(const char *message)
     *g_ErrStream << "\n\n" << message << endl;
 }
 
-#if defined(_WIN32) && defined(_UNICODE) && !defined(_WIN64) && !defined(UNDER_CE)
-#define NT_CHECK_FAIL_ACTION *g_StdStream << "Unsupported Windows version"; return NExitCode::kFatalError;
-#endif
 
 static inline bool CheckIsa()
 {
@@ -118,7 +114,6 @@ int Z7_CDECL main
   }
   // #endif
 
-  NT_CHECK
 
   NConsoleClose::CCtrlHandlerSetter ctrlHandlerSetter;
   int res = 0;

@@ -5,6 +5,7 @@
 #include "../../../Common/MyWindows.h"
 
 #include <TlHelp32.h>
+#include <Psapi.h>
 
 #include "../../../Common/IntToString.h"
 
@@ -41,9 +42,6 @@ using namespace NDir;
 extern bool g_RAM_Size_Defined;
 extern size_t g_RAM_Size;
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 #define kTempDirPrefix FTEXT("7zO")
 
@@ -61,7 +59,6 @@ extern bool g_IsNT;
 
 
 
-#ifndef UNDER_CE
 
 class CProcessSnapshot
 {
@@ -90,7 +87,6 @@ public:
   bool GetNextProcess(PROCESSENTRY32 *pe) { return BOOLToBool(Process32Next(_handle, pe)); }
 };
 
-#endif
 
 
 /*
@@ -153,97 +149,15 @@ public:
 */
 
 
-#ifndef UNDER_CE
-
-EXTERN_C_BEGIN
-
-/*
-GetProcessImageFileName
-  returns the path in device form, rather than drive letters:
-    \Device\HarddiskVolume1\WINDOWS\SysWOW64\notepad.exe
-
-GetModuleFileNameEx works only after Sleep(something). Why?
-  returns the path
-    C:\WINDOWS\system32\NOTEPAD.EXE
-*/
-
-/* Kernel32.dll: Win7, Win2008R2;
-   Psapi.dll: (if PSAPI_VERSION=1) on Win7 and Win2008R2;
-   Psapi.dll: XP, Win2003, Vista, 2008;
-*/
-
-typedef DWORD (WINAPI *Func_GetProcessImageFileNameW)(
-    HANDLE hProcess, LPWSTR lpFilename, DWORD nSize);
-
-typedef DWORD (WINAPI *Func_GetModuleFileNameExW)(
-    HANDLE hProcess, HMODULE hModule, LPWSTR lpFilename, DWORD nSize);
-
-typedef DWORD (WINAPI *Func_GetProcessId)(HANDLE process);
-
-EXTERN_C_END
-
-
-static HMODULE g_Psapi_dll_module;
-
-/*
-static void My_GetProcessFileName_2(HANDLE hProcess, UString &path)
-{
-  path.Empty();
-  const unsigned maxPath = 1024;
-  WCHAR temp[maxPath + 1];
-  
-  const char *func_name = "GetModuleFileNameExW";
-  Func_GetModuleFileNameExW my_func = (Func_GetModuleFileNameExW)
-    ::GetProcAddress(::GetModuleHandleA("kernel32.dll"), func_name);
-  if (!my_func)
-  {
-    if (!g_Psapi_dll_module)
-      g_Psapi_dll_module = LoadLibraryW(L"Psapi.dll");
-    if (g_Psapi_dll_module)
-      my_func = (Func_GetModuleFileNameExW)::GetProcAddress(g_Psapi_dll_module, func_name);
-  }
-  if (my_func)
-  {
-    // DWORD num = GetModuleFileNameEx(hProcess, NULL, temp, maxPath);
-    DWORD num = my_func(hProcess, NULL, temp, maxPath);
-    if (num != 0)
-      path = temp;
-  }
-  // FreeLibrary(lib);
-}
-*/
-
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
 
 static void My_GetProcessFileName(HANDLE hProcess, UString &path)
 {
   path.Empty();
   const unsigned maxPath = 1024;
   WCHAR temp[maxPath + 1];
-  
-  const char *func_name =
-      "GetProcessImageFileNameW";
-  Func_GetProcessImageFileNameW my_func = Z7_GET_PROC_ADDRESS(
-  Func_GetProcessImageFileNameW, ::GetModuleHandleA("kernel32.dll"), func_name);
-  
-  if (!my_func)
-  {
-    if (!g_Psapi_dll_module)
-      g_Psapi_dll_module = LoadLibraryW(L"Psapi.dll");
-    if (g_Psapi_dll_module)
-      my_func = Z7_GET_PROC_ADDRESS(
-        Func_GetProcessImageFileNameW, g_Psapi_dll_module, func_name);
-  }
-  
-  if (my_func)
-  {
-    const DWORD num =
-    // GetProcessImageFileNameW(hProcess, temp, maxPath);
-    my_func(hProcess, temp, maxPath);
-    if (num != 0)
-      path = temp;
-  }
-  // FreeLibrary(lib);
+  const DWORD length = ::K32GetProcessImageFileNameW(hProcess, temp, maxPath);
+  if (length != 0)
+    path = temp;
 }
 
 struct CSnapshotProcess
@@ -277,14 +191,11 @@ static void GetSnapshot(CObjectVector<CSnapshotProcess> &items)
   }
 }
 
-#endif
 
 
 class CChildProcesses
 {
-  #ifndef UNDER_CE
   CRecordVector<DWORD> _ids;
-  #endif
 
 public:
   // bool ProgsWereUsed;
@@ -292,9 +203,7 @@ public:
   CRecordVector<bool> NeedWait;
   // UStringVector Names;
 
-  #ifndef UNDER_CE
   UString Path;
-  #endif
 
   // CChildProcesses(): ProgsWereUsed(false) {}
   ~CChildProcesses() { CloseAll(); }
@@ -313,36 +222,24 @@ public:
     NeedWait.Clear();
     // Names.Clear();
 
-    #ifndef UNDER_CE
     // Path.Empty();
     _ids.Clear();
-    #endif
   }
 
   void SetMainProcess(HANDLE h)
   {
-    #ifndef UNDER_CE
-    const
-    Func_GetProcessId func = Z7_GET_PROC_ADDRESS(
-    Func_GetProcessId, ::GetModuleHandleA("kernel32.dll"),
-        "GetProcessId");
-    if (func)
-    {
-      const DWORD id = func(h);
-      if (id != 0)
-        _ids.AddToUniqueSorted(id);
-    }
-    
+    const DWORD id = ::GetProcessId(h);
+    if (id != 0)
+      _ids.AddToUniqueSorted(id);
+
     My_GetProcessFileName(h, Path);
     DEBUG_PRINT_W(Path);
 
-    #endif
 
     Handles.Add(h);
     NeedWait.Add(true);
   }
 
-  #ifndef UNDER_CE
 
   void Update(bool needFindProcessByPath /* , const CPossibleProgs &progs */)
   {
@@ -418,7 +315,6 @@ public:
     }
   }
   
-  #endif
 };
 
 
@@ -631,9 +527,6 @@ static const char * const kExeExtensions =
   " ";
 
 static const char * const kStartExtensions =
-  #ifdef UNDER_CE
-  " cab"
-  #endif
   " exe bat ps1 com lnk"
   " chm"
   " msi doc dot xls ppt pps wps wpt wks xlr wdb vsd pub"
@@ -722,15 +615,11 @@ static HRESULT StartEditApplication(const UString &path, bool useEditor, HWND wi
   ReadRegEditor(useEditor, command);
   if (command.IsEmpty())
   {
-    #ifdef UNDER_CE
-    command = "\\Windows\\";
-    #else
     FString winDir;
     if (!GetWindowsDir(winDir))
       return 0;
     NName::NormalizeDirPathPrefix(winDir);
     command = fs2us(winDir);
-    #endif
     command += "notepad.exe";
   }
 
@@ -1238,9 +1127,7 @@ static THREAD_FUNC_DECL MyThreadFunction(void *param)
     firstPass = false;
     
     // Sleep(300);
-    #ifndef UNDER_CE
     processes.Update(needFindProcessByPath /* , progs */);
-    #endif
   }
 
 
@@ -1324,7 +1211,7 @@ static THREAD_FUNC_DECL MyThreadFunction(void *param)
 
 
 /*
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 static const FChar * const k_ZoneId_StreamName = FTEXT(":Zone.Identifier");
 #endif
 
@@ -1572,7 +1459,7 @@ void CPanel::OpenItemInArchive(unsigned index, bool tryInternal, bool tryExterna
   }
 
   /*
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   CByteBuffer zoneBuf;
   #ifndef _UNICODE
   if (g_IsNT)
@@ -1628,10 +1515,7 @@ void CPanel::OpenItemInArchive(unsigned index, bool tryInternal, bool tryExterna
       virtFileSystemSpec->FileName = name;
       virtFileSystemSpec->IsAltStreamFile = isAltStream;
 
-#if defined(_WIN32) && !defined(UNDER_CE)
-#ifndef _UNICODE
-      if (g_IsNT)
-#endif
+#if defined(_WIN32)
       {
         Get_ZoneId_Stream_from_ParentFolders(virtFileSystemSpec->ZoneBuf);
         options.ZoneBuf = virtFileSystemSpec->ZoneBuf;
@@ -1715,7 +1599,7 @@ void CPanel::OpenItemInArchive(unsigned index, bool tryInternal, bool tryExterna
 
 
   /*
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   if (zoneBuf.Size() != 0)
   {
     if (NFind::DoesFileExist_Raw(tempFilePath))

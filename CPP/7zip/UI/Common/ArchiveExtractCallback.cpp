@@ -23,7 +23,7 @@
 #include "../../../Windows/PropVariant.h"
 #include "../../../Windows/PropVariantConv.h"
 
-#if defined(_WIN32) && !defined(UNDER_CE)  && !defined(Z7_SFX)
+#if defined(_WIN32)  && !defined(Z7_SFX)
 #define Z7_USE_SECURITY_CODE
 #include "../../../Windows/SecurityUtils.h"
 #endif
@@ -115,7 +115,7 @@ bool InitLocalPrivileges()
 
 
 
-#if defined(_WIN32) && !defined(UNDER_CE) && !defined(Z7_SFX)
+#if defined(_WIN32) && !defined(Z7_SFX)
 
 static const char * const kOfficeExtensions =
   " doc dot wbk"
@@ -313,7 +313,7 @@ CArchiveExtractCallback::CArchiveExtractCallback():
 
 void CArchiveExtractCallback::InitBeforeNewArchive()
 {
-#if defined(_WIN32) && !defined(UNDER_CE) && !defined(Z7_SFX)
+#if defined(_WIN32) && !defined(Z7_SFX)
   ZoneBuf.Free();
 #endif
 }
@@ -383,7 +383,7 @@ void CArchiveExtractCallback::Init(
   _arc = arc;
   _dirPathPrefix = directoryPath;
   _dirPathPrefix_Full = directoryPath;
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   if (!NName::IsAltPathPrefix(_dirPathPrefix))
   #endif
   {
@@ -466,7 +466,7 @@ void CArchiveExtractCallback::CreateComplexDirectory(
     const UString &s = dirPathParts[0];
     if (s.IsEmpty())
       isAbsPath = true;
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
     else if (NName::IsDrivePath2(s))
       isAbsPath = true;
 #endif
@@ -487,7 +487,7 @@ void CArchiveExtractCallback::CreateComplexDirectory(
     const bool isFinalDir = (i == dirPathParts.Size() - 1 && isFinal && _item.IsDir);
     
     if (fullPath.IsEmpty()
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
           || (_pathMode == NExtract::NPathMode::kAbsPaths
               && i == 0 && s.Len() == 2 && NName::IsDrivePath2(s))
 #endif
@@ -784,7 +784,7 @@ bool CensorNode_CheckPath(const NWildcard::CCensorNode &node, const CReadArcItem
 static FString MakePath_from_2_Parts(const FString &prefix, const FString &path)
 {
   FString s (prefix);
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   if (!path.IsEmpty() && path[0] == ':' && !prefix.IsEmpty() && IsPathSepar(prefix.Back()))
   {
     if (!NName::IsDriveRootPath_SuperAllowed(prefix))
@@ -1345,7 +1345,7 @@ HRESULT CArchiveExtractCallback::CheckExistFile(FString &fullProcessedPath, bool
   }
   else // not Find(fullProcessedPath)
   {
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     // we need to clear READ-ONLY of parent before creating alt stream
     const int colonPos = NName::FindAltStreamColon(fullProcessedPath);
     if (colonPos >= 0 && fullProcessedPath[(unsigned)colonPos + 1] != 0)
@@ -1469,7 +1469,6 @@ HRESULT CArchiveExtractCallback::GetExtractStream(CMyComPtr<ISequentialOutStream
   
   if (!_link.LinkPath.IsEmpty())
   {
-    #ifndef UNDER_CE
     {
       bool linkWasSet = false;
       RINOK(SetLink(fullProcessedPath, _link, linkWasSet))
@@ -1483,7 +1482,6 @@ HRESULT CArchiveExtractCallback::GetExtractStream(CMyComPtr<ISequentialOutStream
       }
 */
     }
-    #endif // UNDER_CE
 
     // if (_copyFile_Path.IsEmpty())
     {
@@ -1734,7 +1732,7 @@ Z7_COM7F_IMF(CArchiveExtractCallback::GetStream(const UInt32 index, ISequentialO
   _fileLength_that_WasSet = 0;
   _index = index;
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
   _altStream_NeedRestore_AttribVal = 0;
   _altStream_NeedRestore_Attrib_for_parentFsPath.Empty();
 #endif
@@ -1799,7 +1797,7 @@ Z7_COM7F_IMF(CArchiveExtractCallback::GetStream(const UInt32 index, ISequentialO
       return S_OK;
   }
 
-#if defined(_WIN32) && !defined(UNDER_CE) && !defined(Z7_SFX)
+#if defined(_WIN32) && !defined(Z7_SFX)
   if (askExtractMode == NArchive::NExtract::NAskMode::kExtract
       && !_testMode
       && _item.IsAltStream
@@ -2074,7 +2072,7 @@ HRESULT CArchiveExtractCallback::CloseFile()
   _curSize = processedSize;
   _curSize_Defined = true;
 
- #if defined(_WIN32) && !defined(UNDER_CE) && !defined(Z7_SFX)
+ #if defined(_WIN32) && !defined(Z7_SFX)
   if (ZoneBuf.Size() != 0
       && !_item.IsAltStream)
   {
@@ -2141,7 +2139,7 @@ HRESULT CArchiveExtractCallback::CloseFile()
   RINOK(_outFileStreamSpec->Close())
   _outFileStream.Release();
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
   if (!_altStream_NeedRestore_Attrib_for_parentFsPath.IsEmpty())
   {
     SetFileAttrib(_altStream_NeedRestore_Attrib_for_parentFsPath, _altStream_NeedRestore_AttribVal);

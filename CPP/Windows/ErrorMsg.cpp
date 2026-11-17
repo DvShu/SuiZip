@@ -9,9 +9,6 @@
 #include "ErrorMsg.h"
 
 #ifdef _WIN32
-#if !defined(_UNICODE)
-extern bool g_IsNT;
-#endif
 #endif
 
 namespace NWindows {
@@ -30,17 +27,6 @@ static bool MyFormatMessage(DWORD errorCode, UString &message)
   #ifdef _WIN32
   
   LPVOID msgBuf;
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    if (::FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-        FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL, errorCode, 0, (LPTSTR) &msgBuf, 0, NULL) == 0)
-      return false;
-    message = GetUnicodeString((LPCTSTR)msgBuf);
-  }
-  else
-  #endif
   {
     if (::FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER |
         FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,

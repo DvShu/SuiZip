@@ -19,7 +19,6 @@ namespace NShell {
 
 /////////////////////////
 // CItemIDList
-#ifndef UNDER_CE
 
 class CItemIDList
 {
@@ -84,7 +83,6 @@ public:
   void QueryFileNames(UStringVector &fileNames);
 };
 */
-#endif
 
 struct CFileAttribs
 {

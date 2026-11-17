@@ -270,7 +270,7 @@ int Main2(
   LoadSecurityDlls();
   #endif
 
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   SetFileApisToOEM();
   #endif
   
@@ -309,10 +309,8 @@ int Main2(
 
   #endif
 
-  #ifndef UNDER_CE
   if (commandStrings.Size() > 0)
     commandStrings.Delete(0);
-  #endif
 
   NCommandLineParser::CParser parser;
   

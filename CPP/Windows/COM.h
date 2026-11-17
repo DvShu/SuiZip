@@ -12,17 +12,11 @@ namespace NCOM {
   
 class CComInitializer
 {
+  HRESULT _result;
 public:
-  CComInitializer()
-  {
-    #ifdef UNDER_CE
-    CoInitializeEx(NULL, COINIT_MULTITHREADED);
-    #else
-    // it's single thread. Do we need multithread?
-    CoInitialize(NULL);
-    #endif
-  }
-  ~CComInitializer() { CoUninitialize(); }
+  CComInitializer(): _result(CoInitialize(NULL)) {}
+  ~CComInitializer() { if (SUCCEEDED(_result)) CoUninitialize(); }
+  HRESULT GetResult() const { return _result; }
 };
 
 /*

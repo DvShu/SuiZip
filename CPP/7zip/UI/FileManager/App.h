@@ -56,6 +56,8 @@ class CDropTarget;
 
 class CApp
 {
+  HFONT _controlFont;
+
 public:
   NWindows::CWindow _window;
   bool ShowSystemMenu;
@@ -75,9 +77,6 @@ public:
 
   NWindows::NControl::CImageList _buttonsImageList;
 
-  #ifdef UNDER_CE
-  NWindows::NControl::CCommandBar _commandBar;
-  #endif
   NWindows::NControl::CToolBar _toolBar;
 
   CDropTarget *_dropTargetSpec;
@@ -88,6 +87,7 @@ public:
   void ReloadLangItems();
 
   CApp():
+    _controlFont(NULL),
     _window(NULL),
     AutoRefresh_Mode(true),
     NumPanels(2),
@@ -95,6 +95,7 @@ public:
   {
     SetPanels_AutoRefresh_Mode();
   }
+  ~CApp();
 
   void CreateDragTarget();
   void SetFocusedPanel(unsigned index);
@@ -139,10 +140,8 @@ public:
   void Properties() { GetFocusedPanel().Properties(); }
   void Comment() { GetFocusedPanel().ChangeComment(); }
   
-  #ifndef UNDER_CE
   void Link();
   void OpenAltStreams() { GetFocusedPanel().OpenAltStreams(); }
-  #endif
 
   void CreateFolder() { GetFocusedPanel().CreateFolder(); }
   void CreateFile() { GetFocusedPanel().CreateFile(); }
@@ -247,6 +246,8 @@ public:
   void SetBookmark(unsigned index) { GetFocusedPanel().SetBookmark(index); }
 
   void ReloadToolbars();
+  HFONT GetControlFont() const { return _controlFont; }
+  void OnDpiChanged(int dpi);
   void ReadToolbar()
   {
     const UInt32 mask = ReadToolbarsMask();

@@ -4,7 +4,7 @@
 #define IDS_CONTEXT_EXTRACT             2323
 #define IDS_CONTEXT_COMPRESS            2324
 #define IDS_CONTEXT_TEST                2325
-#define IDS_CONTEXT_EXTRACT_HERE        2326
+#define IDS_CONTEXT_EXTRACT_HERE        2335
 #define IDS_CONTEXT_EXTRACT_TO          2327
 #define IDS_CONTEXT_COMPRESS_TO         2328
 #define IDS_CONTEXT_COMPRESS_EMAIL      2329
@@ -12,4 +12,4 @@
 
 #define IDS_SELECT_FILES                3015
 
-#define IDB_MENU_LOGO  190
+#define IDI_ICON  1

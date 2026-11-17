@@ -15,22 +15,6 @@ CAPTION "Language"
 }
 
 
-#ifdef UNDER_CE
-
-#undef m
-#undef xc
-
-#define m 4
-#define xc (SMALL_PAGE_SIZE_X + 8)
-
-IDD_LANG_2  MY_PAGE
-CAPTION "Language"
-{
-  LTEXT     "Language:", IDT_LANG_LANG, m, m, xc, 8
-  COMBOBOX  IDC_LANG_LANG, m, 20, xc, yc - 20, MY_COMBO // MY_COMBO_SORTED
-}
-
-#endif
 
 
 STRINGTABLE

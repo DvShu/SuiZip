@@ -5,14 +5,29 @@
 
 namespace NFileManagerStyle {
 
-inline int Scale(HWND window, int pixels)
+inline int GetDpi(HWND window)
 {
+  typedef UINT (WINAPI *GetDpiForWindowFunc)(HWND);
+  static const GetDpiForWindowFunc getDpiForWindow = Z7_GET_PROC_ADDRESS(
+      GetDpiForWindowFunc, ::GetModuleHandleW(L"user32.dll"), "GetDpiForWindow");
+  if (getDpiForWindow && window)
+  {
+    const UINT dpi = getDpiForWindow(window);
+    if (dpi)
+      return (int)dpi;
+  }
+
   HDC dc = ::GetDC(window);
   if (!dc)
-    return pixels;
+    return USER_DEFAULT_SCREEN_DPI;
   const int dpi = ::GetDeviceCaps(dc, LOGPIXELSX);
   ::ReleaseDC(window, dc);
-  return ::MulDiv(pixels, dpi, 96);
+  return dpi > 0 ? dpi : USER_DEFAULT_SCREEN_DPI;
+}
+
+inline int Scale(HWND window, int pixels)
+{
+  return ::MulDiv(pixels, GetDpi(window), USER_DEFAULT_SCREEN_DPI);
 }
 
 inline COLORREF BlendColors(COLORREF background, COLORREF foreground, unsigned strength)

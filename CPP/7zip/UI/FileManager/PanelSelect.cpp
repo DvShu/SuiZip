@@ -271,7 +271,6 @@ void CPanel::OnLeftClick(MY_NMLISTVIEW_NMITEMACTIVATE *itemActivate)
   if (indexInList < 0)
     return;
   
-  #ifndef UNDER_CE
   if ((itemActivate->uKeyFlags & LVKF_SHIFT) != 0)
   {
     // int focusedIndex = _listView.GetFocusedItem();
@@ -296,11 +295,9 @@ void CPanel::OnLeftClick(MY_NMLISTVIEW_NMITEMACTIVATE *itemActivate)
     }
   }
   else
-  #endif
   {
     _startGroupSelect = indexInList;
   
-    #ifndef UNDER_CE
     if ((itemActivate->uKeyFlags & LVKF_CONTROL) != 0)
     {
       const unsigned realIndex = GetRealItemIndex(indexInList);
@@ -310,7 +307,6 @@ void CPanel::OnLeftClick(MY_NMLISTVIEW_NMITEMACTIVATE *itemActivate)
         _listView.RedrawItem(indexInList);
       }
     }
-    #endif
   }
 
   return;

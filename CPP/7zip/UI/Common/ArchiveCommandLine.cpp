@@ -5,9 +5,7 @@
 #undef sprintf
 
 #ifdef _WIN32
-#ifndef UNDER_CE
 #include <io.h>
-#endif
 #else
 // for isatty()
 #include <unistd.h>
@@ -58,11 +56,6 @@ EXTERN_C_END
 #endif
 */
 
-#ifdef UNDER_CE
-
-#define MY_IS_TERMINAL(x) false;
-
-#else
 
 static bool MY_IS_TERMINAL(FILE *x)
 {
@@ -106,7 +99,6 @@ typedef struct _iobuf FILE;
 #endif
 }
 
-#endif
 
 using namespace NCommandLineParser;
 using namespace NWindows;
@@ -188,6 +180,7 @@ enum Enum
   kUseSlashMark,
   kDisableWildcardParsing,
   kElimDup,
+  kSmartExtract,
   kFullPathMode,
   kOutDirMode,
   
@@ -340,6 +333,7 @@ static const CSwitchForm kSwitchForms[] =
   { "spm", SWFRM_STRING_SINGL(0) },
   { "spd", SWFRM_SIMPLE },
   { "spe", SWFRM_MINUS },
+  { "sps", SWFRM_SIMPLE },
   { "spf", SWFRM_STRING_SINGL(0) },
   { "spo", NSwitchType::kChar, false, 1, "dcr" }, // kOutDirMode
 
@@ -1029,7 +1023,7 @@ static inline void SetStreamMode(const CSwitchResult &sw, unsigned &res)
 }
 
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 static void PrintHex(UString &s, UInt64 v)
 {
   char temp[32];
@@ -1114,7 +1108,7 @@ void CArcCmdLineParser::Parse1(const UStringVector &commandStrings,
   }
 
 
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   NSecurity::EnablePrivilege_SymLink();
   #endif
   
@@ -1206,7 +1200,7 @@ void CArcCmdLineParser::Parse1(const UStringVector &commandStrings,
     }
 
     if (slp_Risk <=
-          #if defined(_WIN32) && !defined(UNDER_CE)
+          #if defined(_WIN32)
             (unsigned)NSecurity::Get_LargePages_RiskLevel()
           #else
             0
@@ -1239,7 +1233,7 @@ void CArcCmdLineParser::Parse1(const UStringVector &commandStrings,
     {
       // note: this process also can inherit that Privilege from parent process
       g_LargePagesMode = true;
-      #if defined(_WIN32) && !defined(UNDER_CE)
+      #if defined(_WIN32)
       if (!NSecurity::EnablePrivilege_LockMemory())
       {
         g_LargePagesMode = false;
@@ -1253,7 +1247,6 @@ void CArcCmdLineParser::Parse1(const UStringVector &commandStrings,
 #endif // Z7_LARGE_PAGES
 
 
-#ifndef UNDER_CE
 
   if (parser[NKey::kAffinity].ThereIs)
   {
@@ -1331,7 +1324,6 @@ void CArcCmdLineParser::Parse1(const UStringVector &commandStrings,
     }
   }
 
-#endif
 }
 
 
@@ -1464,6 +1456,8 @@ void CArcCmdLineParser::Parse2(CArcCmdLineOptions &options)
     options.ExtractOptions.ElimDup.Def = true;
     options.ExtractOptions.ElimDup.Val = !parser[NKey::kElimDup].WithMinus;
   }
+  if (parser[NKey::kSmartExtract].ThereIs)
+    options.ExtractOptions.SmartExtract.Def = options.ExtractOptions.SmartExtract.Val = true;
   
   NWildcard::ECensorPathMode censorPathMode = NWildcard::k_RelatPath;
   bool fullPathMode = parser[NKey::kFullPathMode].ThereIs;

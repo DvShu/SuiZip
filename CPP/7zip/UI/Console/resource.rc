@@ -5,6 +5,4 @@ MY_VERSION_INFO_APP(MY_PRODUCT_NAME " Console", "7z")
 
 1 ICON "../../../../assets/suizip.ico"
 
-#ifndef UNDER_CE
 1  24  MOVEABLE PURE   "Console.manifest"
-#endif

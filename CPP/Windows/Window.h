@@ -8,7 +8,6 @@
 
 #include "WinDefs.h"
 
-#ifndef UNDER_CE
 #ifdef WM_CHANGEUISTATE
 #define Z7_WIN_WM_CHANGEUISTATE  WM_CHANGEUISTATE
 #define Z7_WIN_WM_UPDATEUISTATE  WM_UPDATEUISTATE
@@ -44,60 +43,8 @@
 
 #endif
 
-#endif // UNDER_CE
 
 
-#ifdef Z7_OLD_WIN_SDK
-
-// #define VK_OEM_1          0xBA   // ';:' for US
-#define VK_OEM_PLUS       0xBB   // '+' any country
-// #define VK_OEM_COMMA      0xBC   // ',' any country
-#define VK_OEM_MINUS      0xBD   // '-' any country
-// #define VK_OEM_PERIOD     0xBE   // '.' any country
-// #define VK_OEM_2          0xBF   // '/?' for US
-// #define VK_OEM_3          0xC0   // '`~' for US
-
-// #ifndef GWLP_USERDATA
-#define GWLP_WNDPROC        (-4)
-#define GWLP_USERDATA       (-21)
-// #endif
-#define DWLP_MSGRESULT  0
-// #define DWLP_DLGPROC    DWLP_MSGRESULT + sizeof(LRESULT)
-// #define DWLP_USER       DWLP_DLGPROC + sizeof(DLGPROC)
-
-#define BTNS_BUTTON     TBSTYLE_BUTTON      // 0x0000
-
-/*
-vc6 defines INT_PTR via long:
-  typedef long INT_PTR, *PINT_PTR;
-  typedef unsigned long UINT_PTR, *PUINT_PTR;
-but newer sdk (sdk2003+) defines INT_PTR via int:
-  typedef _W64 int INT_PTR, *PINT_PTR;
-  typedef _W64 unsigned int UINT_PTR, *PUINT_PTR;
-*/
-
-#define IS_INTRESOURCE(_r) (((ULONG_PTR)(_r) >> 16) == 0)
-
-#define GetWindowLongPtrA   GetWindowLongA
-#define GetWindowLongPtrW   GetWindowLongW
-#ifdef UNICODE
-#define GetWindowLongPtr  GetWindowLongPtrW
-#else
-#define GetWindowLongPtr  GetWindowLongPtrA
-#endif // !UNICODE
-
-#define SetWindowLongPtrA   SetWindowLongA
-#define SetWindowLongPtrW   SetWindowLongW
-#ifdef UNICODE
-#define SetWindowLongPtr  SetWindowLongPtrW
-#else
-#define SetWindowLongPtr  SetWindowLongPtrA
-#endif // !UNICODE
-
-#define ListView_SetCheckState(hwndLV, i, fCheck) \
-  ListView_SetItemState(hwndLV, i, INDEXTOSTATEIMAGEMASK((fCheck)?2:1), LVIS_STATEIMAGEMASK)
-
-#endif // Z7_OLD_WIN_SDK
 
 inline bool LRESULTToBool(LRESULT v) { return (v != FALSE); }
 
@@ -119,13 +66,6 @@ bool MySetWindowText(HWND wnd, LPCWSTR s);
 #endif
 
 
-#ifdef UNDER_CE
-#define GWLP_USERDATA GWL_USERDATA
-#define GWLP_WNDPROC GWL_WNDPROC
-#define BTNS_BUTTON TBSTYLE_BUTTON
-#define WC_COMBOBOXW L"ComboBox"
-#define DWLP_MSGRESULT DWL_MSGRESULT
-#endif
 
 class CWindow
 {
@@ -154,9 +94,7 @@ public:
   
   HWND GetParent() const { return ::GetParent(_window); }
   bool GetWindowRect(LPRECT rect) const { return BOOLToBool(::GetWindowRect(_window,rect)); }
-  #ifndef UNDER_CE
   bool IsZoomed() const { return BOOLToBool(::IsZoomed(_window)); }
-  #endif
   bool ClientToScreen(LPPOINT point) const { return BOOLToBool(::ClientToScreen(_window, point)); }
   bool ScreenToClient(LPPOINT point) const { return BOOLToBool(::ScreenToClient(_window, point)); }
 
@@ -242,10 +180,8 @@ public:
   bool Show(int cmdShow) { return BOOLToBool(::ShowWindow(_window, cmdShow)); }
   bool Show_Bool(bool show) { return Show(show ? SW_SHOW: SW_HIDE); }
 
-  #ifndef UNDER_CE
   bool SetPlacement(CONST WINDOWPLACEMENT *placement) { return BOOLToBool(::SetWindowPlacement(_window, placement)); }
   bool GetPlacement(WINDOWPLACEMENT *placement) { return BOOLToBool(::GetWindowPlacement(_window, placement)); }
-  #endif
   bool Update() { return BOOLToBool(::UpdateWindow(_window)); }
   bool InvalidateRect(LPCRECT rect, bool backgroundErase = true)
     { return BOOLToBool(::InvalidateRect(_window, rect, BoolToBOOL(backgroundErase))); }
@@ -262,15 +198,6 @@ public:
   LONG_PTR GetUserDataLong() const { return GetLong(GWLP_USERDATA); }
 
 
-  #ifdef UNDER_CE
-
-  LONG_PTR SetLongPtr(int index, LONG_PTR newLongPtr) { return SetLong(index, newLongPtr); }
-  LONG_PTR GetLongPtr(int index) const { return GetLong(index); }
-
-  LONG_PTR SetUserDataLongPtr(LONG_PTR newLongPtr) { return SetUserDataLong(newLongPtr); }
-  LONG_PTR GetUserDataLongPtr() const { return GetUserDataLong(); }
-  
-  #else
   
   LONG_PTR SetLongPtr(int index, LONG_PTR newLongPtr)
     { return ::SetWindowLongPtr(_window, index,
@@ -291,7 +218,6 @@ public:
   LONG_PTR SetUserDataLongPtr(LONG_PTR newLongPtr) { return SetLongPtr(GWLP_USERDATA, newLongPtr); }
   LONG_PTR GetUserDataLongPtr() const { return GetLongPtr(GWLP_USERDATA); }
   
-  #endif
   
   /*
   bool ModifyStyle(HWND hWnd, DWORD remove, DWORD add, UINT flags = 0)
@@ -340,10 +266,8 @@ public:
   bool IsEnabled() const
     { return BOOLToBool(::IsWindowEnabled(_window)); }
   
-  #ifndef UNDER_CE
   HMENU GetSystemMenu(bool revert)
     { return ::GetSystemMenu(_window, BoolToBOOL(revert)); }
-  #endif
 
   UINT_PTR SetTimer(UINT_PTR idEvent, UINT elapse, TIMERPROC timerFunc = NULL)
     { return ::SetTimer(_window, idEvent, elapse, timerFunc); }

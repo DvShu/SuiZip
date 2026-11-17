@@ -114,12 +114,6 @@ typedef void (*Z7_void_Function)(void);
 
 #ifdef _MSC_VER
 
-  #ifdef UNDER_CE
-    #define RPC_NO_WINDOWS_H
-    /* #pragma warning(disable : 4115) // '_RPC_ASYNC_STATE' : named type definition in parentheses */
-    #pragma warning(disable : 4201) // nonstandard extension used : nameless struct/union
-    #pragma warning(disable : 4214) // nonstandard extension used : bit field types other than int
-  #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1800
 #pragma warning(disable : 4464) // relative include path contains '..'

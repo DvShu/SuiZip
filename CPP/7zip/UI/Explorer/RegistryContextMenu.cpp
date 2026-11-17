@@ -13,11 +13,6 @@
 using namespace NWindows;
 using namespace NRegistry;
 
-#ifndef UNDER_CE
-
-// does extension can work, if Approved is removed ?
-// CLISID (and Approved ?) items are separated for 32-bit and 64-bit code.
-// shellex items shared by 32-bit and 64-bit code?
 
 #define k_Clsid_A "{23170F69-40C1-278A-1000-000100020000}"
 
@@ -50,54 +45,6 @@ static const bool k_shellex_Statuses[2][4] =
 };
 
 
-// RegDeleteKeyExW is supported starting from win2003sp1/xp-pro-x64
-// Z7_WIN32_WINNT_MIN < 0x0600  // Vista
-#if !defined(Z7_WIN32_WINNT_MIN) \
-    || Z7_WIN32_WINNT_MIN  < 0x0502  /* < win2003 */ \
-    || Z7_WIN32_WINNT_MIN == 0x0502 && !defined(_M_AMD64)
-#define Z7_USE_DYN_RegDeleteKeyExW
-#endif
-
-#ifdef Z7_USE_DYN_RegDeleteKeyExW
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-typedef
-// WINADVAPI
-LONG (APIENTRY *Func_RegDeleteKeyExW)(HKEY hKey, LPCWSTR lpSubKey, REGSAM samDesired, DWORD Reserved);
-static Func_RegDeleteKeyExW func_RegDeleteKeyExW;
-
-static void Init_RegDeleteKeyExW()
-{
-  if (!func_RegDeleteKeyExW)
-    func_RegDeleteKeyExW = Z7_GET_PROC_ADDRESS(
-    Func_RegDeleteKeyExW, GetModuleHandleW(L"advapi32.dll"),
-        "RegDeleteKeyExW");
-}
-#define INIT_REG_WOW if (wow != 0) Init_RegDeleteKeyExW();
-#else
-#define INIT_REG_WOW
-#endif
-
-
-static LONG MyRegistry_DeleteKey(HKEY parentKey, LPCTSTR name, UInt32 wow)
-{
-  if (wow == 0)
-    return RegDeleteKey(parentKey, name);
-
-#ifdef Z7_USE_DYN_RegDeleteKeyExW
-  if (!func_RegDeleteKeyExW)
-    return E_NOTIMPL;
-  return func_RegDeleteKeyExW
-#else
-  return RegDeleteKeyExW
-#endif
-      (parentKey, GetUnicodeString(name), wow, 0);
-}
-
-static LONG MyRegistry_DeleteKey_HKCR(LPCTSTR name, UInt32 wow)
-{
-  return MyRegistry_DeleteKey(HKEY_CLASSES_ROOT, name, wow);
-}
-
 // static NSynchronization::CCriticalSection g_CS;
 
 static AString Get_ContextMenuHandler_KeyName(LPCSTR keyName)
@@ -108,10 +55,10 @@ static CSysString Get_DragDropHandler_KeyName(LPCTSTR keyName)
   { return (AString)keyName + k_KeyPostfix_DragDrop); }
 */
 
-static bool CheckHandlerCommon(const AString &keyName, UInt32 wow)
+static bool CheckHandlerCommon(const AString &keyName)
 {
   CKey key;
-  if (key.Open(HKEY_CLASSES_ROOT, (CSysString)keyName, KEY_READ | wow) != ERROR_SUCCESS)
+  if (key.Open(HKEY_CLASSES_ROOT, (CSysString)keyName, KEY_READ) != ERROR_SUCCESS)
     return false;
   CSysString value;
   if (key.QueryValue(NULL, value) != ERROR_SUCCESS)
@@ -119,7 +66,7 @@ static bool CheckHandlerCommon(const AString &keyName, UInt32 wow)
   return StringsAreEqualNoCase_Ascii(value, k_Clsid_A);
 }
 
-bool CheckContextMenuHandler(const UString &path, UInt32 wow)
+bool CheckContextMenuHandler(const UString &path)
 {
   // NSynchronization::CCriticalSectionLock lock(g_CS);
 
@@ -129,7 +76,7 @@ bool CheckContextMenuHandler(const UString &path, UInt32 wow)
   
   {
     NRegistry::CKey key;
-    if (key.Open(HKEY_CLASSES_ROOT, s, KEY_READ | wow) != ERROR_SUCCESS)
+    if (key.Open(HKEY_CLASSES_ROOT, s, KEY_READ) != ERROR_SUCCESS)
       return false;
     UString regPath;
     if (key.QueryValue(NULL, regPath) != ERROR_SUCCESS)
@@ -139,28 +86,13 @@ bool CheckContextMenuHandler(const UString &path, UInt32 wow)
   }
   
   return
-       CheckHandlerCommon(Get_ContextMenuHandler_KeyName(k_KeyName_File), wow);
-  /*
-    && CheckHandlerCommon(Get_ContextMenuHandler_KeyName(k_KeyName_Directory), wow)
-    // && CheckHandlerCommon(Get_ContextMenuHandler_KeyName(k_KeyName_Folder))
-
-    && CheckHandlerCommon(Get_DragDropHandler_KeyName(k_KeyName_Directory), wow)
-    && CheckHandlerCommon(Get_DragDropHandler_KeyName(k_KeyName_Drive), wow);
-  */
+       CheckHandlerCommon(Get_ContextMenuHandler_KeyName(k_KeyName_File));
 }
 
 
-static LONG MyCreateKey(CKey &key, HKEY parentKey, LPCTSTR keyName, UInt32 wow)
-{
-  return key.Create(parentKey, keyName, REG_NONE,
-      REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS | wow);
-}
-
-LONG SetContextMenuHandler(bool setMode, const UString &path, UInt32 wow)
+LONG SetContextMenuHandler(bool setMode, const UString &path)
 {
   // NSynchronization::CCriticalSectionLock lock(g_CS);
-
-  INIT_REG_WOW
 
   LONG res;
 
@@ -172,12 +104,12 @@ LONG SetContextMenuHandler(bool setMode, const UString &path, UInt32 wow)
   {
     {
       CKey key;
-      res = MyCreateKey(key, HKEY_CLASSES_ROOT, s, wow);
+      res = key.Create(HKEY_CLASSES_ROOT, s);
       if (res == ERROR_SUCCESS)
       {
         key.SetValue(NULL, k_ShellExtName);
         CKey keyInproc;
-        res = MyCreateKey(keyInproc, key, k_Inproc, wow);
+        res = keyInproc.Create(key, k_Inproc);
         if (res == ERROR_SUCCESS)
         {
           res = keyInproc.SetValue(NULL, path);
@@ -188,7 +120,7 @@ LONG SetContextMenuHandler(bool setMode, const UString &path, UInt32 wow)
     
     {
       CKey key;
-      if (MyCreateKey(key, HKEY_LOCAL_MACHINE, k_Approved, wow) == ERROR_SUCCESS)
+      if (key.Create(HKEY_LOCAL_MACHINE, k_Approved) == ERROR_SUCCESS)
         key.SetValue(k_Clsid, k_ShellExtName);
     }
   }
@@ -197,12 +129,12 @@ LONG SetContextMenuHandler(bool setMode, const UString &path, UInt32 wow)
     CSysString s2 (s);
     s2 += "\\InprocServer32";
 
-    MyRegistry_DeleteKey_HKCR(s2, wow);
-    res = MyRegistry_DeleteKey_HKCR(s, wow);
+    RegDeleteKey(HKEY_CLASSES_ROOT, s2);
+    res = RegDeleteKey(HKEY_CLASSES_ROOT, s);
   }
   }
 
-  // shellex items probably are shared beween 32-bit and 64-bit apps. So we don't delete items for delete operation.
+  // The CLSID controls activation. Leave shared handler keys on disable.
   if (setMode)
   for (unsigned i = 0; i < 2; i++)
   {
@@ -213,15 +145,13 @@ LONG SetContextMenuHandler(bool setMode, const UString &path, UInt32 wow)
       if (k_shellex_Statuses[i][k])
       {
         CKey key;
-        MyCreateKey(key, HKEY_CLASSES_ROOT, s, wow);
+        key.Create(HKEY_CLASSES_ROOT, s);
         key.SetValue(NULL, k_Clsid);
       }
       else
-        MyRegistry_DeleteKey_HKCR(s, wow);
+        RegDeleteKey(HKEY_CLASSES_ROOT, s);
     }
   }
 
   return res;
 }
-
-#endif

@@ -9,7 +9,6 @@
 namespace NWindows {
 namespace NSecurity {
 
-#ifndef UNDER_CE
 
 #ifdef _UNICODE
 #define MY_FUNC_SELECT(f) :: f
@@ -122,6 +121,5 @@ unsigned Get_LargePages_RiskLevel()
   return 0;
 }
 
-#endif
 
 }}

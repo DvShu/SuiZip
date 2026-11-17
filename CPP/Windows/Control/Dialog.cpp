@@ -4,26 +4,16 @@
 
 // #include "../../Windows/DLL.h"
 
-#ifndef _UNICODE
-#include "../../Common/StringConvert.h"
-#endif
 
 #include "Dialog.h"
 
 extern HINSTANCE g_hInstance;
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 namespace NWindows {
 namespace NControl {
 
 static
-#ifdef Z7_OLD_WIN_SDK
-  BOOL
-#else
   INT_PTR
-#endif
 APIENTRY
 DialogProcedure(HWND dialogHWND, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -100,34 +90,10 @@ bool CDialog::OnButtonClicked(unsigned buttonID, HWND /* buttonHWND */)
   return true;
 }
 
-#ifndef UNDER_CE
-/* in win2000/win98 : monitor functions are supported.
-   We need dynamic linking, if we want nt4/win95 support in program.
-   Even if we compile the code with low (WINVER) value, we still
-   want to use monitor functions. So we declare missing functions here */
-// #if (WINVER < 0x0500)
-#ifndef MONITOR_DEFAULTTOPRIMARY
-extern "C" {
-DECLARE_HANDLE(HMONITOR);
-#define MONITOR_DEFAULTTOPRIMARY    0x00000001
-typedef struct tagMONITORINFO
-{
-    DWORD   cbSize;
-    RECT    rcMonitor;
-    RECT    rcWork;
-    DWORD   dwFlags;
-} MONITORINFO, *LPMONITORINFO;
-WINUSERAPI HMONITOR WINAPI MonitorFromWindow(HWND hwnd, DWORD dwFlags);
-WINUSERAPI BOOL WINAPI GetMonitorInfoA(HMONITOR hMonitor, LPMONITORINFO lpmi);
-}
-#endif
-#endif
-
 static bool GetWorkAreaRect(RECT *rect, HWND hwnd)
 {
   if (hwnd)
   {
-    #ifndef UNDER_CE
     /* MonitorFromWindow() is supported in Win2000+
        MonitorFromWindow() : retrieves a handle to the display monitor that has the
          largest area of intersection with the bounding rectangle of a specified window.
@@ -148,7 +114,6 @@ static bool GetWorkAreaRect(RECT *rect, HWND hwnd)
         return true;
       }
     }
-    #endif
   }
 
   /* Retrieves the size of the work area on the primary display monitor.
@@ -400,47 +365,5 @@ INT_PTR CModalDialog::Create(LPCTSTR templateName, HWND parentWindow)
   return DialogBoxParam(g_hInstance, templateName, parentWindow, DialogProcedure, (LPARAM)this);
 }
 
-#ifndef _UNICODE
-
-bool CModelessDialog::Create(LPCWSTR templateName, HWND parentWindow)
-{
-  HWND aHWND;
-  if (g_IsNT)
-    aHWND = CreateDialogParamW(g_hInstance, templateName, parentWindow, DialogProcedure, (LPARAM)this);
-  else
-  {
-    AString name;
-    LPCSTR templateNameA;
-    if (IS_INTRESOURCE(templateName))
-      templateNameA = (LPCSTR)templateName;
-    else
-    {
-      name = GetSystemString(templateName);
-      templateNameA = name;
-    }
-    aHWND = CreateDialogParamA(g_hInstance, templateNameA, parentWindow, DialogProcedure, (LPARAM)this);
-  }
-  if (aHWND == 0)
-    return false;
-  Attach(aHWND);
-  return true;
-}
-
-INT_PTR CModalDialog::Create(LPCWSTR templateName, HWND parentWindow)
-{
-  if (g_IsNT)
-    return DialogBoxParamW(g_hInstance, templateName, parentWindow, DialogProcedure, (LPARAM)this);
-  AString name;
-  LPCSTR templateNameA;
-  if (IS_INTRESOURCE(templateName))
-    templateNameA = (LPCSTR)templateName;
-  else
-  {
-    name = GetSystemString(templateName);
-    templateNameA = name;
-  }
-  return DialogBoxParamA(g_hInstance, templateNameA, parentWindow, DialogProcedure, (LPARAM)this);
-}
-#endif
 
 }}

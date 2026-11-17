@@ -325,7 +325,7 @@ void CPanel::AddColumn(const CPropColumn &prop)
   
   LV_COLUMNW column;
   column.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM | LVCF_ORDER;
-  column.cx = (int)prop.Width;
+  column.cx = ::MulDiv((int)prop.Width, _columnDpi, USER_DEFAULT_SCREEN_DPI);
   column.fmt = GetColumnAlign(prop.ID, prop.Type);
   column.iOrder = (int)index; // must be <= _listView.ItemCount
   column.iSubItem = (int)index; // must be <= _listView.ItemCount
@@ -465,6 +465,60 @@ extern DWORD g_Num_SetItemText;
 extern UInt32 g_NumMessages;
 */
 
+int CPanel::GetListItemIconIndex(unsigned index)
+{
+  if (index >= _listIconIndices.Size())
+    return 0;
+  if (_listIconIndices[index] >= 0)
+    return _listIconIndices[index];
+
+  CDisableTimerProcessing timerProcessing(*this);
+  int iconIndex = -1;
+  if (!_folderGetSystemIconIndex ||
+      _folderGetSystemIconIndex->GetSystemIconIndex(index, &iconIndex) != S_OK ||
+      iconIndex <= 0)
+  {
+    NCOM::CPropVariant prop;
+    UInt32 attrib = 0;
+    if (_folder->GetProperty(index, kpidAttrib, &prop) == S_OK && prop.vt == VT_UI4)
+    {
+      attrib = prop.ulVal;
+      // Archive attributes can also contain POSIX mode bits.
+      if ((attrib & 0xF0000000) && IsArcFolder())
+        attrib &= 0x3FFF;
+    }
+    if (IsItem_Folder(index))
+      attrib |= FILE_ATTRIBUTE_DIRECTORY;
+    else
+      attrib &= ~(UInt32)FILE_ATTRIBUTE_DIRECTORY;
+
+    const wchar_t *name = NULL;
+    UString storedName;
+    if (_folderGetItemName)
+    {
+      unsigned nameLen = 0;
+      _folderGetItemName->GetItemName(index, &name, &nameLen);
+    }
+    if (!name)
+    {
+      GetItemName(index, storedName);
+      name = storedName;
+    }
+    iconIndex = -1;
+    if (IsFSDrivesFolder())
+    {
+      FString path (us2fs(UString(name)));
+      path.Add_PathSepar();
+      iconIndex = Shell_GetFileInfo_SysIconIndex_for_Path(path, attrib);
+    }
+    if (iconIndex < 0)
+      iconIndex = g_Ext_to_Icon_Map.GetIconIndex(attrib, name);
+  }
+  iconIndex = MyMax(iconIndex, 0);
+  _listIconIndices[index] = iconIndex;
+  return iconIndex;
+}
+
 HRESULT CPanel::RefreshListCtrl(const CSelectedState &state)
 {
   m_DropHighlighted_SelectionIndex = -1;
@@ -501,6 +555,8 @@ HRESULT CPanel::RefreshListCtrl(const CSelectedState &state)
   
   // _enableItemChangeNotify = false;
   DeleteListItems();
+  _listIconIndices.Clear();
+  _folderGetSystemIconIndex.Release();
   _enableItemChangeNotify = true;
 
   int listViewItemCount = 0;
@@ -583,14 +639,11 @@ HRESULT CPanel::RefreshListCtrl(const CSelectedState &state)
   _selectedStatusVector.ClearAndReserve(numItems);
   int cursorIndex = -1;
 
-  CMyComPtr<IFolderGetSystemIconIndex> folderGetSystemIconIndex;
-#if 1 // 0 : for debug local icons loading
   if (!Is_Slow_Icon_Folder() || _showRealFileIcons)
-    _folder.QueryInterface(IID_IFolderGetSystemIconIndex, &folderGetSystemIconIndex);
-#endif
-
-  const bool isFSDrivesFolder = IsFSDrivesFolder();
-  const bool isArcFolder = IsArcFolder();
+    _folder.QueryInterface(IID_IFolderGetSystemIconIndex, &_folderGetSystemIconIndex);
+  _listIconIndices.ClearAndSetSize(numItems);
+  for (UInt32 i = 0; i < numItems; i++)
+    _listIconIndices[i] = -1;
 
   if (!IsFSFolder())
   {
@@ -783,93 +836,7 @@ HRESULT CPanel::RefreshListCtrl(const CSelectedState &state)
       LPSTR_TEXTCALLBACKW can be 2-3 times faster for loading in this loop. */
     }
 
-    bool defined = false;
-    item.iImage = -1;
-  
-    if (folderGetSystemIconIndex)
-    {
-      const HRESULT res = folderGetSystemIconIndex->GetSystemIconIndex(i, &item.iImage);
-      if (res == S_OK)
-      {
-        // item.iImage = -1; // for debug
-        defined = (item.iImage > 0);
-#if 0 // 0: can be slower: 2 attempts for some paths.
-      // 1: faster, but we can get default icon for some cases (where non default icon is possible)
-
-        if (item.iImage == 0)
-        {
-          // (item.iImage == 0) means default icon.
-          // But (item.iImage == 0) also can be returned for exe/ico files,
-          // if filePath is LONG PATH (path_len() >= MAX_PATH).
-          // Also we want to show split icon (.001) for any split extension: 001 002 003.
-          // Are there another cases for (item.iImage == 0) for files with known extensions?
-          // We don't want to do second attempt to request icon,
-          // if it also will return (item.iImage == 0).
-
-          int dotPos = -1;
-          for (unsigned k = 0;; k++)
-          {
-            const wchar_t c = name[k];
-            if (c == 0)
-              break;
-            if (c == '.')
-              dotPos = (int)i;
-            // we don't need IS_PATH_SEPAR check, because we have only (fileName) doesn't include path prefix.
-            // if (IS_PATH_SEPAR(c) || c == ':') dotPos = -1;
-          }
-          defined = true;
-          if (dotPos >= 0)
-          {
-#if 0
-            const wchar_t *ext = name + dotPos;
-            if (StringsAreEqualNoCase_Ascii(ext, ".exe") ||
-                StringsAreEqualNoCase_Ascii(ext, ".ico"))
-#endif
-              defined = false;
-          }
-        }
-#endif
-      }
-    }
-
-    if (!defined)
-    {
-      UInt32 attrib = 0;
-      {
-        NCOM::CPropVariant prop;
-        RINOK(_folder->GetProperty(i, kpidAttrib, &prop))
-        if (prop.vt == VT_UI4)
-        {
-          attrib = prop.ulVal;
-          if (isArcFolder)
-          {
-            // if attrib (high 16-bits) is supposed from posix,
-            // we keep only low bits (basic Windows attrib flags):
-            if (attrib & 0xF0000000)
-              attrib &= 0x3FFF;
-          }
-        }
-      }
-      if (IsItem_Folder(i))
-        attrib |= FILE_ATTRIBUTE_DIRECTORY;
-      else
-        attrib &= ~(UInt32)FILE_ATTRIBUTE_DIRECTORY;
-
-      item.iImage = -1;
-      if (isFSDrivesFolder)
-      {
-        FString fs (us2fs((UString)name));
-        fs.Add_PathSepar();
-        item.iImage = Shell_GetFileInfo_SysIconIndex_for_Path(fs, attrib);
-        // item.iImage = 0; // for debug
-      }
-      if (item.iImage < 0) // <= 0 check?
-        item.iImage = g_Ext_to_Icon_Map.GetIconIndex(attrib, name);
-    }
-    
-    // item.iImage = -1; // for debug
-    if (item.iImage < 0)
-        item.iImage = 0; // default image
+    item.iImage = I_IMAGECALLBACK;
     if (_listView.InsertItem(&item) == -1)
       return E_FAIL;
     listViewItemCount++;
@@ -1205,7 +1172,7 @@ UString CPanel::GetItemRelPath(unsigned itemIndex) const
 UString CPanel::GetItemRelPath2(unsigned itemIndex) const
 {
   UString s = GetItemRelPath(itemIndex);
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   if (s.Len() == 2 && NFile::NName::IsDrivePath2(s))
   {
     if (IsFSDrivesFolder() && !IsDeviceDrivesPrefix())
@@ -1248,7 +1215,7 @@ void CPanel::Add_ItemRelPath2_To_String(unsigned itemIndex, UString &s) const
     s += prop.bstrVal;
   }
 
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
     if (s.Len() - start == 2 && NFile::NName::IsDrivePath2(s.Ptr(start)))
     {
       if (IsFSDrivesFolder() && !IsDeviceDrivesPrefix())
@@ -1335,7 +1302,7 @@ void CPanel::SaveListViewInfo()
     if (!_listView.GetColumn(i, &winColumnInfo))
       throw 1;
     prop.Order = winColumnInfo.iOrder;
-    prop.Width = (UInt32)(Int32)winColumnInfo.cx;
+    prop.Width = (UInt32)::MulDiv(winColumnInfo.cx, USER_DEFAULT_SCREEN_DPI, _columnDpi);
   }
 
   CListViewInfo viewInfo;

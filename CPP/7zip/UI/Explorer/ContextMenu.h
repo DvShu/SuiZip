@@ -46,11 +46,7 @@ class CZipContextMenu Z7_final:
   STDMETHOD(QueryContextMenu)(HMENU hmenu, UINT indexMenu, UINT idCmdFirst, UINT idCmdLast, UINT uFlags) Z7_override;
   STDMETHOD(InvokeCommand)(LPCMINVOKECOMMANDINFO lpici) Z7_override;
   STDMETHOD(GetCommandString)(
-      #ifdef Z7_OLD_WIN_SDK
-        UINT
-      #else
         UINT_PTR
-      #endif
       idCmd, UINT uType, UINT *pwReserved, LPSTR pszName, UINT cchMax) Z7_override;
 
   // IExplorerCommand
@@ -151,6 +147,7 @@ private:
   HBITMAP _bitmap;
   UInt32 _writeZone;
   CBoolPair _elimDup;
+  CBoolPair _smartExtract;
 
   bool IsSeparator;
   bool IsRoot;

@@ -145,17 +145,12 @@ BEGIN
     MENUITEM "&Options...",                 IDM_OPTIONS
     MY_MENUITEM_SEPARATOR
     MENUITEM "&Benchmark",                  IDM_BENCHMARK
-  #ifdef UNDER_CE
-    MENUITEM "Benchmark 2",                 IDM_BENCHMARK2
-  #endif
     MY_MENUITEM_SEPARATOR
     MENUITEM "Delete Temporary Files...",   IDM_TEMP_DIR
-  #ifndef UNDER_CE
   END
   POPUP "&Help" MY_MENUITEM_ID(IDM_HELP)
   BEGIN
     MENUITEM "&Contents...\tF1",            IDM_HELP_CONTENTS
-  #endif
     MY_MENUITEM_SEPARATOR
   MENUITEM "&About...",                     IDM_ABOUT
   END
@@ -164,9 +159,7 @@ END
 
 IDI_ICON  ICON  "../../../../assets/suizip.ico"
 
-#ifndef UNDER_CE
 1  24  MOVEABLE PURE   "../../UI/FileManager/7zFM.exe.manifest"
-#endif
 
 IDB_TOOLBAR_SMALL  BITMAP  "../../../../assets/toolbar-24.bmp"
 IDB_TOOLBAR_LARGE  BITMAP  "../../../../assets/toolbar-32.bmp"

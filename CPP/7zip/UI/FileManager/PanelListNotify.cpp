@@ -195,38 +195,9 @@ LRESULT CPanel::SetItemText(LVITEMW &item)
 {
   if (_dontShowMode)
     return 0;
-  UInt32 realIndex = GetRealIndex(item);
-
-  // g_Num_SetItemText++;
-
-  /*
+  const UInt32 realIndex = GetRealIndex(item);
   if ((item.mask & LVIF_IMAGE) != 0)
-  {
-    bool defined  = false;
-    CComPtr<IFolderGetSystemIconIndex> folderGetSystemIconIndex;
-    _folder.QueryInterface(&folderGetSystemIconIndex);
-    if (folderGetSystemIconIndex)
-    {
-      folderGetSystemIconIndex->GetSystemIconIndex(index, &item.iImage);
-      defined = (item.iImage > 0);
-    }
-    if (!defined)
-    {
-      NCOM::CPropVariant prop;
-      _folder->GetProperty(index, kpidAttrib, &prop);
-      UINT32 attrib = 0;
-      if (prop.vt == VT_UI4)
-        attrib = prop.ulVal;
-      else if (IsItemFolder(index))
-        attrib |= FILE_ATTRIBUTE_DIRECTORY;
-      if (_currentFolderPrefix.IsEmpty())
-        throw 1;
-      else
-        item.iImage = _extToIconMap.GetIconIndex(attrib, GetSystemString(GetItemName(index)));
-    }
-    // item.iImage = 1;
-  }
-  */
+    item.iImage = GetListItemIconIndex(realIndex);
 
   if ((item.mask & LVIF_TEXT) == 0)
     return 0;
@@ -602,6 +573,7 @@ bool CPanel::OnNotifyList(LPNMHDR header, LRESULT &result)
       {
         if (!_mySelectMode)
           OnItemChanged((LPNMLISTVIEW)header);
+        _listView.NotifyAutomationItem(*(const NMLISTVIEW *)header);
         
         // Post_Refresh_StatusBar();
         /* 9.26: we don't call Post_Refresh_StatusBar.
@@ -705,9 +677,6 @@ bool CPanel::OnNotifyList(LPNMHDR header, LRESULT &result)
       SetFocusToList();
       Post_Refresh_StatusBar();
       if (_mySelectMode)
-#ifdef Z7_USE_DYN_ComCtl32Version
-        if (g_ComCtl32Version >= MAKELONG(71, 4))
-#endif
           OnLeftClick((MY_NMLISTVIEW_NMITEMACTIVATE *)header);
       return false;
     }
@@ -878,9 +847,7 @@ void CPanel::Refresh_StatusBar()
   for (unsigned i = 0; i < Z7_ARRAY_SIZE(parts); i++)
   {
     _statusBar.SetText(i, parts[i], SBT_NOBORDERS);
-    #ifndef UNDER_CE
     const CSysString tooltipText = GetSystemString(parts[i]);
     _statusBar.SendMsg(SB_SETTIPTEXT, i, (LPARAM)(LPCTSTR)tooltipText);
-    #endif
   }
 }

@@ -200,14 +200,14 @@ void Correct_FsPath(bool absIsAllowed, bool keepAndReplaceEmptyPrefixes, UString
 
   if (absIsAllowed)
   {
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     bool isDrive = false;
     #endif
     
     if (parts[0].IsEmpty())
     {
       i = 1;
-      #if defined(_WIN32) && !defined(UNDER_CE)
+      #if defined(_WIN32)
       if (parts.Size() > 1 && parts[1].IsEmpty())
       {
         i = 2;
@@ -223,7 +223,7 @@ void Correct_FsPath(bool absIsAllowed, bool keepAndReplaceEmptyPrefixes, UString
       }
       #endif
     }
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     else if (NWindows::NFile::NName::IsDrivePath2(parts[0]))
     {
       isDrive = true;

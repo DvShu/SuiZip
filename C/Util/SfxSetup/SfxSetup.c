@@ -3,13 +3,7 @@
 
 #include "Precomp.h"
 
-#ifndef UNICODE
-#define UNICODE
-#endif
 
-#ifndef _UNICODE
-#define _UNICODE
-#endif
 
 #ifdef _CONSOLE
 #include <stdio.h>
@@ -39,9 +33,6 @@ static const char * const kExts[] =
   , "exe"
   , "inf"
   , "msi"
-  #ifdef UNDER_CE
-  , "cab"
-  #endif
   , "html"
   , "htm"
 };
@@ -117,16 +108,7 @@ static void PrintErrorMessage(const char *message)
   PrintStr(message);
   PrintStr("\n");
   #else
-  #ifdef UNDER_CE
-  WCHAR messageW[256 + 4];
-  unsigned i;
-  for (i = 0; i < 256 && message[i] != 0; i++)
-    messageW[i] = message[i];
-  messageW[i] = 0;
-  MessageBoxW(0, messageW, L"7-Zip Error", MB_ICONERROR);
-  #else
   MessageBoxA(0, message, "7-Zip Error", MB_ICONERROR);
-  #endif
   #endif
 }
 
@@ -135,11 +117,7 @@ static WRes MyCreateDir(const WCHAR *name)
   return CreateDirectoryW(name, NULL) ? 0 : GetLastError();
 }
 
-#ifdef UNDER_CE
-#define kBufferSize (1 << 13)
-#else
 #define kBufferSize (1 << 15)
-#endif
 
 #define kSignatureSearchLimit (1 << 22)
 
@@ -247,11 +225,7 @@ static WRes RemoveDirWithSubItems(WCHAR *path)
 int Z7_CDECL main(void)
 #else
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-  #ifdef UNDER_CE
-  LPWSTR
-  #else
   LPSTR
-  #endif
   lpCmdLine, int nCmdShow)
 #endif
 {
@@ -263,9 +237,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   ISzAlloc allocTempImp;
   WCHAR sfxPath[MAX_PATH + 2];
   WCHAR path[MAX_PATH * 3 + 2];
-  #ifndef UNDER_CE
   WCHAR workCurDir[MAX_PATH + 32];
-  #endif
   size_t pathLen;
   DWORD winRes;
   const WCHAR *cmdLineParams;
@@ -301,7 +273,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     return 1;
   {
     cmdLineParams = GetCommandLineW();
-    #ifndef UNDER_CE
     {
       BoolInt quoteMode = False;
       for (;; cmdLineParams++)
@@ -313,7 +284,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
           break;
       }
     }
-    #endif
   }
 
   {
@@ -362,9 +332,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
       }
     }
     
-    #ifndef UNDER_CE
     wcscpy(workCurDir, path);
-    #endif
     if (res != SZ_OK)
       errorMessage = "Can't create temp folder";
   }
@@ -563,7 +531,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   {
     HANDLE hProcess = 0;
     
-    #ifndef UNDER_CE
     WCHAR oldCurDir[MAX_PATH + 2];
     oldCurDir[0] = 0;
     {
@@ -572,7 +539,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         oldCurDir[0] = 0;
       SetCurrentDirectory(workCurDir);
     }
-    #endif
     
     if (useShellExecute)
     {
@@ -584,9 +550,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
       ei.cbSize = sizeof(ei);
       ei.lpFile = path;
       ei.fMask = SEE_MASK_NOCLOSEPROCESS
-          #ifndef UNDER_CE
           | SEE_MASK_FLAG_DDEWAIT
-          #endif
           /* | SEE_MASK_NO_CONSOLE */
           ;
       if (wcslen(cmdLineParams) != 0)
@@ -594,7 +558,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
       ei.nShow = SW_SHOWNORMAL; /* SW_HIDE; */
       success = ShellExecuteEx(&ei);
       executeRes = (UINT32)(UINT_PTR)ei.hInstApp;
-      if (!success || (executeRes <= 32 && executeRes != 0))  /* executeRes = 0 in Windows CE */
+      if (!success || executeRes <= 32)
         res = SZ_ERROR_FAIL;
       else
         hProcess = ei.hProcess;
@@ -626,9 +590,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
       CloseHandle(hProcess);
     }
     
-    #ifndef UNDER_CE
     SetCurrentDirectory(oldCurDir);
-    #endif
   }
 
   path[pathLen] = L'\0';

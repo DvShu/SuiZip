@@ -1273,10 +1273,6 @@ ifdef USE_ASM
 ifdef IS_X64
 USE_X86_ASM=1
 USE_X64_ASM=1
-else
-ifdef IS_X86
-USE_X86_ASM=1
-endif
 endif
 endif
 

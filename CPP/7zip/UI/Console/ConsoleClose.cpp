@@ -4,7 +4,6 @@
 
 #include "ConsoleClose.h"
 
-#ifndef UNDER_CE
 
 #ifdef _WIN32
 #include "../../../Common/MyWindows.h"
@@ -94,5 +93,3 @@ void CheckCtrlBreak()
 */
 
 }
-
-#endif

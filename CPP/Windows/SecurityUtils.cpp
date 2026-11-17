@@ -50,57 +50,18 @@ static void MyLookupSids(CPolicy &policy, PSID ps)
 }
 */
 
-extern "C" {
-
-#ifndef _UNICODE
-typedef BOOL (WINAPI * Func_LookupAccountNameW)(
-    LPCWSTR lpSystemName,
-    LPCWSTR lpAccountName,
-    PSID Sid,
-    LPDWORD cbSid,
-    LPWSTR ReferencedDomainName,
-    LPDWORD cchReferencedDomainName,
-    PSID_NAME_USE peUse
-    );
-#endif
-
-}
-
 static PSID GetSid(LPWSTR accountName)
 {
-  #ifndef _UNICODE
-  const HMODULE hModule = GetModuleHandle(TEXT("advapi32.dll"));
-  if (!hModule)
-    return NULL;
-  const
-  Func_LookupAccountNameW lookupAccountNameW = Z7_GET_PROC_ADDRESS(
-  Func_LookupAccountNameW, hModule,
-      "LookupAccountNameW");
-  if (!lookupAccountNameW)
-    return NULL;
-  #endif
-
   DWORD sidLen = 0, domainLen = 0;
   SID_NAME_USE sidNameUse;
-  if (!
-    #ifdef _UNICODE
-    ::LookupAccountNameW
-    #else
-      lookupAccountNameW
-    #endif
-        (NULL, accountName, NULL, &sidLen, NULL, &domainLen, &sidNameUse))
+  if (!::LookupAccountNameW(NULL, accountName, NULL, &sidLen, NULL, &domainLen, &sidNameUse))
   {
     if (::GetLastError() == ERROR_INSUFFICIENT_BUFFER)
     {
       const PSID pSid = ::HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sidLen);
       LPWSTR domainName = (LPWSTR)::HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (domainLen + 1) * sizeof(WCHAR));
-      const BOOL res =
-        #ifdef _UNICODE
-        ::LookupAccountNameW
-        #else
-          lookupAccountNameW
-        #endif
-            (NULL, accountName, pSid, &sidLen, domainName, &domainLen, &sidNameUse);
+      const BOOL res = ::LookupAccountNameW(NULL, accountName, pSid, &sidLen,
+          domainName, &domainLen, &sidNameUse);
       ::HeapFree(GetProcessHeap(), 0, domainName);
       if (res)
         return pSid;

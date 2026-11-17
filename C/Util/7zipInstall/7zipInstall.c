@@ -13,26 +13,14 @@
 
 Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
 
-#ifdef Z7_OLD_WIN_SDK
-struct IShellView;
-#define SHFOLDERAPI  EXTERN_C DECLSPEC_IMPORT HRESULT STDAPICALLTYPE
-SHFOLDERAPI SHGetFolderPathW(HWND hwnd, int csidl, HANDLE hToken, DWORD dwFlags, LPWSTR pszPath);
-#define BIF_NEWDIALOGSTYLE     0x0040   // Use the new dialog layout with the ability to resize
-typedef enum {
-    SHGFP_TYPE_CURRENT  = 0,   // current value for user, verify it exists
-    SHGFP_TYPE_DEFAULT  = 1,   // default value, may not exist
-} SHGFP_TYPE;
-#endif
 #if defined(__MINGW32__) || defined(__MINGW64__)
 #include <shlobj.h>
 #else
 #include <ShlObj.h>
 #endif
-#if !defined(UNDER_CE) && !defined(Z7_OLD_WIN_SDK)
 #include <ExDisp.h>
 #include <ShlDisp.h>
 #include <ShlGuid.h>
-#endif
 
 #include "../../7z.h"
 #include "../../7zAlloc.h"
@@ -41,11 +29,13 @@ typedef enum {
 /* Modified 2026-11-16 for the fork: use its name and product version in Setup. */
 /* Modified 2026-11-17 for the fork: refresh archive icons after installing. */
 /* Modified 2026-11-17 for the fork: launch the file manager after interactive setup. */
+/* Modified 2026-11-17 for the fork: wait for the installer Close button before launching. */
 #include "../../7zVersion.h"
 #include "../../CpuArch.h"
 #include "../../DllSecur.h"
 
 #include "resource.h"
+#include "../LegacyContextMenu.h"
 
 #if (defined(__GNUC__) && (__GNUC__ >= 8)) || defined(__clang__)
   // #pragma GCC diagnostic ignored "-Wcast-function-type"
@@ -69,31 +59,12 @@ static LPCSTR const k_7zip = MY_PRODUCT_NAME;
 static LPCWSTR const k_Reg_Software_7zip = L"Software\\7-Zip";
 static LPCWSTR const k_Reg_Uninstall_7zip = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\7-Zip";
 
-// #define Z7_64BIT_INSTALLER 1
-
-#ifdef _WIN64
-  #define Z7_64BIT_INSTALLER 1
-#endif
-
 #define k_7zip_with_Ver_base LLL(MY_PRODUCT_NAME) L" " LLL(MY_PRODUCT_VERSION)
 
-#ifdef Z7_64BIT_INSTALLER
-
-  // #define USE_7ZIP_32_DLL
-
-  #if defined(_M_ARM64) || defined(_M_ARM)
-    #define k_Postfix  L" (arm64)"
-  #else
-    #define k_Postfix  L" (x64)"
-    #define USE_7ZIP_32_DLL
-  #endif
+#if defined(_M_ARM64) || defined(__aarch64__)
+  #define k_Postfix L" (arm64)"
 #else
-  #if defined(_M_ARM64) || defined(_M_ARM)
-    #define k_Postfix  L" (arm)"
-  #else
-    // #define k_Postfix  L" (x86)"
-    #define k_Postfix
-  #endif
+  #define k_Postfix L" (x64)"
 #endif
 
 #define k_7zip_with_Ver  k_7zip_with_Ver_base k_Postfix
@@ -105,29 +76,7 @@ static LPCWSTR const k_7zip_Setup = k_7zip_with_Ver L" Setup";
 
 static LPCWSTR const k_Reg_Path = L"Path";
 
-static LPCWSTR const k_Reg_Path32 = L"Path"
-  #ifdef Z7_64BIT_INSTALLER
-    L"64"
-  #else
-    L"32"
-  #endif
-    ;
- 
-#if defined(Z7_64BIT_INSTALLER) && !defined(_WIN64)
-  #define k_Reg_WOW_Flag KEY_WOW64_64KEY
-#else
-  #define k_Reg_WOW_Flag 0
-#endif
-
-#ifdef USE_7ZIP_32_DLL
-#ifdef _WIN64
-  #define k_Reg_WOW_Flag_32 KEY_WOW64_32KEY
-#else
-  #define k_Reg_WOW_Flag_32 0
-#endif
-#endif
-
-#define k_7zip_CLSID L"{23170F69-40C1-278A-1000-000100020000}"
+static LPCWSTR const k_Reg_Path64 = L"Path64";
 
 static LPCWSTR const k_Reg_CLSID_7zip = L"CLSID\\" k_7zip_CLSID;
 static LPCWSTR const k_Reg_CLSID_7zip_Inproc = L"CLSID\\" k_7zip_CLSID L"\\InprocServer32";
@@ -136,6 +85,7 @@ static LPCWSTR const k_Reg_CLSID_7zip_Inproc = L"CLSID\\" k_7zip_CLSID L"\\Inpro
 
 static BoolInt g_Install_was_Pressed;
 static BoolInt g_Finished;
+static BoolInt g_FinishButtonPressed;
 static BoolInt g_SilentMode;
 
 static HWND g_HWND;
@@ -373,7 +323,7 @@ static int MyRegistry_QueryString(HKEY hKey, LPCWSTR name, LPWSTR dest)
 static int MyRegistry_QueryString2(HKEY hKey, LPCWSTR keyName, LPCWSTR valName, LPWSTR dest)
 {
   HKEY key = 0;
-  const LONG res = RegOpenKeyExW(hKey, keyName, 0, KEY_READ | k_Reg_WOW_Flag, &key);
+  const LONG res = RegOpenKeyExW(hKey, keyName, 0, KEY_READ, &key);
   if (res != ERROR_SUCCESS)
     return False;
   {
@@ -399,7 +349,7 @@ static LONG MyRegistry_CreateKey(HKEY parentKey, LPCWSTR name, HKEY *destKey)
 {
   return RegCreateKeyExW(parentKey, name, 0, NULL,
       REG_OPTION_NON_VOLATILE,
-      KEY_ALL_ACCESS | k_Reg_WOW_Flag,
+      KEY_ALL_ACCESS,
       NULL, destKey, NULL);
 }
 
@@ -416,37 +366,7 @@ static LONG MyRegistry_CreateKeyAndVal(HKEY parentKey, LPCWSTR keyName, LPCWSTR 
 }
 
 
-#ifdef USE_7ZIP_32_DLL
-
-static LONG MyRegistry_CreateKey_32(HKEY parentKey, LPCWSTR name, HKEY *destKey)
-{
-  return RegCreateKeyExW(parentKey, name, 0, NULL,
-      REG_OPTION_NON_VOLATILE,
-      KEY_ALL_ACCESS | k_Reg_WOW_Flag_32,
-      NULL, destKey, NULL);
-}
-
-static LONG MyRegistry_CreateKeyAndVal_32(HKEY parentKey, LPCWSTR keyName, LPCWSTR valName, LPCWSTR val)
-{
-  HKEY destKey = 0;
-  LONG res = MyRegistry_CreateKey_32(parentKey, keyName, &destKey);
-  if (res == ERROR_SUCCESS)
-  {
-    res = MyRegistry_SetString(destKey, valName, val);
-    /* res = */ RegCloseKey(destKey);
-  }
-  return res;
-}
-
-#endif
-
-
-
-#ifdef UNDER_CE
-  #define kBufSize (1 << 13)
-#else
   #define kBufSize (1 << 15)
-#endif
 
 #define kSignatureSearchLimit (1 << 22)
 
@@ -508,7 +428,6 @@ static void HexToString(UInt32 val, WCHAR *s)
 }
 
 
-#ifndef UNDER_CE
 
 static int CALLBACK BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lp, LPARAM data)
 {
@@ -567,7 +486,6 @@ static BoolInt MyBrowseForFolder(HWND owner, LPCWSTR title, UINT ulFlags,
   }
 }
 
-#endif
 
 static void NormalizePrefix(WCHAR *s)
 {
@@ -650,11 +568,7 @@ static void OnClose(void)
 }
 
 static
-#ifdef Z7_OLD_WIN_SDK
-  BOOL
-#else
   INT_PTR
-#endif
 CALLBACK MyDlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
   // UNUSED_VAR(hwnd)
@@ -682,6 +596,7 @@ CALLBACK MyDlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
           if (g_Finished)
           {
+            g_FinishButtonPressed = True;
             OnClose();
             break;
           }
@@ -707,7 +622,6 @@ CALLBACK MyDlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         
         case IDB_EXTRACT_SET_PATH:
         {
-          #ifndef UNDER_CE
           
           WCHAR s[MAX_PATH];
           WCHAR s2[MAX_PATH + sizeof(MY_PRODUCT_NAME) + 1];
@@ -723,7 +637,6 @@ CALLBACK MyDlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             SetDlgItemTextW(hwnd, IDE_EXTRACT_PATH, s2);
           }
           
-          #endif
           break;
         }
         
@@ -754,7 +667,7 @@ static LONG SetRegKey_Path2(HKEY parentKey)
   LONG res = MyRegistry_CreateKey(parentKey, k_Reg_Software_7zip, &destKey);
   if (res == ERROR_SUCCESS)
   {
-    res = MyRegistry_SetString(destKey, k_Reg_Path32, path);
+    res = MyRegistry_SetString(destKey, k_Reg_Path64, path);
     /* res = */ MyRegistry_SetString(destKey, k_Reg_Path, path);
     /* res = */ RegCloseKey(destKey);
   }
@@ -796,12 +709,6 @@ static HRESULT CreateShellLink(LPCWSTR srcPath, LPCWSTR targetPath)
 
 static void SetShellProgramsGroup(HWND hwndOwner)
 {
-  #ifdef UNDER_CE
-
-  // CpyAscii(link, "\\Program Files\\");
-  UNUSED_VAR(hwndOwner)
-
-  #else
 
   unsigned i = (g_AllUsers ? 0 : 2);
 
@@ -853,10 +760,8 @@ static void SetShellProgramsGroup(HWND hwndOwner)
       break;
   }
 
-  #endif
 }
 
-#if !defined(UNDER_CE) && !defined(Z7_OLD_WIN_SDK)
 static HRESULT LaunchFileManager(void)
 {
   IShellWindows *shellWindows = NULL;
@@ -934,7 +839,6 @@ cleanup:
   if (shellWindows) shellWindows->lpVtbl->Release(shellWindows);
   return result;
 }
-#endif
 
 static LPCWSTR const k_Shell_Approved = L"Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved";
 static LPCWSTR const k_7zip_ShellExtension = LLL(MY_PRODUCT_NAME) L" Shell Extension";
@@ -944,26 +848,6 @@ static void WriteCLSID(void)
   HKEY destKey;
   LONG res;
 
-  #ifdef USE_7ZIP_32_DLL
- 
-  MyRegistry_CreateKeyAndVal_32(HKEY_CLASSES_ROOT, k_Reg_CLSID_7zip, NULL, k_7zip_ShellExtension);
-  
-  res = MyRegistry_CreateKey_32(HKEY_CLASSES_ROOT, k_Reg_CLSID_7zip_Inproc, &destKey);
-  
-  if (res == ERROR_SUCCESS)
-  {
-    WCHAR destPath[MAX_PATH + 40];
-    wcscpy(destPath, path);
-    CatAscii(destPath, "7-zip32.dll");
-    /* res = */ MyRegistry_SetString(destKey, NULL, destPath);
-    /* res = */ MyRegistry_SetString(destKey, L"ThreadingModel", L"Apartment");
-    // DeleteRegValue(destKey, L"InprocServer32");
-    /* res = */ RegCloseKey(destKey);
-  }
-
-  #endif
-
-  
   MyRegistry_CreateKeyAndVal(HKEY_CLASSES_ROOT, k_Reg_CLSID_7zip, NULL, k_7zip_ShellExtension);
   
   destKey = 0;
@@ -1000,16 +884,10 @@ static void WriteShellEx(void)
     CpyAscii(destPath, k_ShellEx_Items[i]);
     CatAscii(destPath, "\\7-Zip");
 
-    #ifdef USE_7ZIP_32_DLL
-    MyRegistry_CreateKeyAndVal_32(HKEY_CLASSES_ROOT, destPath, NULL, k_7zip_CLSID);
-    #endif
-    MyRegistry_CreateKeyAndVal   (HKEY_CLASSES_ROOT, destPath, NULL, k_7zip_CLSID);
+    MyRegistry_CreateKeyAndVal(HKEY_CLASSES_ROOT, destPath, NULL, k_7zip_CLSID);
   }
 
-  #ifdef USE_7ZIP_32_DLL
-  MyRegistry_CreateKeyAndVal_32(HKEY_LOCAL_MACHINE, k_Shell_Approved, k_7zip_CLSID, k_7zip_ShellExtension);
-  #endif
-  MyRegistry_CreateKeyAndVal   (HKEY_LOCAL_MACHINE, k_Shell_Approved, k_7zip_CLSID, k_7zip_ShellExtension);
+  MyRegistry_CreateKeyAndVal(HKEY_LOCAL_MACHINE, k_Shell_Approved, k_7zip_CLSID, k_7zip_ShellExtension);
 
 
   wcscpy(destPath, path);
@@ -1105,14 +983,8 @@ static void RemoveQuotes(WCHAR *s)
 // #define IS_LIMIT_CHAR(c) (c == 0 || c == ' ')
 
 
-typedef BOOL (WINAPI *Func_IsWow64Process)(HANDLE, PBOOL);
-
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-    #ifdef UNDER_CE
-      LPWSTR
-    #else
       LPSTR
-    #endif
     lpCmdLine, int nCmdShow)
 {
 
@@ -1120,19 +992,15 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   UNUSED_VAR(lpCmdLine)
   UNUSED_VAR(nCmdShow)
 
-  #ifndef UNDER_CE
   LoadSecurityDlls();
   CoInitialize(NULL);
-  #endif
 
   CrcGenerateTable();
 
   {
     const WCHAR *s = GetCommandLineW();
     
-    #ifndef UNDER_CE
     s = GetCmdParam(s);
-    #endif
 
     for (;;)
     {
@@ -1181,37 +1049,11 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
   }
 
-  #if defined(Z7_64BIT_INSTALLER) && !defined(_WIN64)
-  {
-    BOOL isWow64 = FALSE;
-    const Func_IsWow64Process func_IsWow64Process = (Func_IsWow64Process)
-        Z7_CAST_FUNC_C GetProcAddress(GetModuleHandleW(L"kernel32.dll"),
-        "IsWow64Process");
-    
-    if (func_IsWow64Process)
-      func_IsWow64Process(GetCurrentProcess(), &isWow64);
-
-    if (!isWow64)
-    {
-      if (!g_SilentMode)
-        PrintErrorMessage("This installation requires Windows "
-          #ifdef MY_CPU_X86_OR_AMD64
-            "x64"
-          #else
-            "64-bit"
-          #endif
-            , NULL);
-      return 1;
-    }
-  }
-  #endif
-
-
   if (path[0] == 0)
   {
     HKEY key = 0;
     BoolInt ok = False;
-    const LONG res = RegOpenKeyExW(HKEY_LOCAL_MACHINE, k_Reg_Uninstall_7zip, 0, KEY_READ | k_Reg_WOW_Flag, &key);
+    const LONG res = RegOpenKeyExW(HKEY_LOCAL_MACHINE, k_Reg_Uninstall_7zip, 0, KEY_READ, &key);
     if (res == ERROR_SUCCESS)
     {
       WCHAR displayName[MAX_PATH + 1] = { 0 };
@@ -1226,30 +1068,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     // ok = False;
     if (!ok)
     {
-      /*
-      #ifdef UNDER_CE
-        CpyAscii(path, "\\Program Files\\");
-      #else
-      
-        #ifdef Z7_64BIT_INSTALLER
-        {
-          DWORD ttt = GetEnvironmentVariableW(L"ProgramW6432", path, MAX_PATH);
-          if (ttt == 0 || ttt > MAX_PATH)
-            CpyAscii(path, "C:\\");
-        }
-        #else
-        if (!SHGetSpecialFolderPathW(0, path, CSIDL_PROGRAM_FILES, FALSE))
-          CpyAscii(path, "C:\\");
-        #endif
-      #endif
-      */
       if (!MyRegistry_QueryString2(HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion", L"ProgramFilesDir", path))
         CpyAscii(path,
-            #ifdef UNDER_CE
-              "\\Program Files\\"
-            #else
               "C:\\"
-            #endif
             );
 
       SetProductFolder(path);
@@ -1263,6 +1084,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
   {
     int retCode = 1;
+    BoolInt restartRequired = False;
     // INT_PTR res = DialogBox(
     g_HWND = CreateDialog(
         hInstance,
@@ -1285,10 +1107,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
       // we need messages for all thread windows (including EDITTEXT window in dialog)
       while ((bRet = GetMessage(&msg, NULL, 0, 0)) != 0)
       {
-        if (bRet == -1)
-          return retCode;
-        if (!g_HWND)
-          return retCode;
+        if (bRet == -1 || !g_HWND)
+          break;
 
         if (!IsDialogMessage(g_HWND, &msg))
         {
@@ -1296,11 +1116,10 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
           DispatchMessage(&msg);
         }
         if (!g_HWND)
-          return retCode;
+          break;
 
         if (g_Install_was_Pressed && !g_Finished)
         {
-          BoolInt restartRequired = False;
           retCode = Install(&restartRequired);
           g_Finished = True;
           if (retCode != 0)
@@ -1313,11 +1132,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             EnableWindow(GetDlgItem(g_HWND, IDCANCEL), FALSE);
             SendMessage(g_HWND, WM_NEXTDLGCTL, (WPARAM)(void *)GetDlgItem(g_HWND, IDOK), TRUE);
           }
-          #if !defined(UNDER_CE) && !defined(Z7_OLD_WIN_SDK)
-          if (!restartRequired && FAILED(LaunchFileManager()) && g_HWND)
-            MessageBoxW(g_HWND, L"Could not open " LLL(MY_PRODUCT_NAME)
-                L". You can open it from the Start menu.", k_7zip_Setup, MB_ICONINFORMATION);
-          #endif
         }
       }
 
@@ -1328,6 +1142,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
       }
     }
 
+    if (retCode == 0 && g_FinishButtonPressed && !restartRequired && FAILED(LaunchFileManager()))
+      MessageBoxW(NULL, L"Could not open " LLL(MY_PRODUCT_NAME)
+          L". You can open it from the Start menu.", k_7zip_Setup, MB_ICONINFORMATION);
     return retCode;
   }
 }
@@ -1590,11 +1407,7 @@ if (res == SZ_OK)
               continue;
             }
             
-            if (FindSubString(temp, "7-zip.dll")
-                #ifdef USE_7ZIP_32_DLL
-                || FindSubString(temp, "7-zip32.dll")
-                #endif
-                )
+            if (FindSubString(temp, "7-zip.dll"))
             {
               const DWORD ver = GetFileVersion(path);
               fileLevel = ((ver < Z7_7ZIP_DLL_VER_COMPAT || ver > Z7_7ZIP_CUR_VER) ? 2 : 1);
@@ -1684,14 +1497,12 @@ if (res == SZ_OK)
         if (tempIndex != 0)
         {
           // is it supported at win2000 ?
-          #ifndef UNDER_CE
           if (!MoveFileExW(path, origPath, MOVEFILE_DELAY_UNTIL_REBOOT | MOVEFILE_REPLACE_EXISTING))
           {
             winRes = GetLastError();
             break;
           }
           needRebootLevel |= fileLevel;
-          #endif
         }
 
       }
@@ -1706,15 +1517,17 @@ if (res == SZ_OK)
 
     if (i == db.NumFiles)
     {
+      BOOL legacyRestartRequired = FALSE;
+      winRes = RemoveLegacyContextMenu(path, &legacyRestartRequired);
+      if (legacyRestartRequired)
+        needRebootLevel |= 1 << 2;
       SetRegKey_Path();
       WriteCLSID();
       WriteShellEx();
       
       SetShellProgramsGroup(g_HWND);
-      #ifndef UNDER_CE
       SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
-      #endif
-      if (!g_SilentMode)
+      if (!g_SilentMode && winRes == 0)
         SetWindowTextW(g_InfoLine_HWND, k_7zip_with_Ver L" is installed");
     }
   }
@@ -1739,7 +1552,6 @@ if (res == SZ_OK)
       if (MessageBoxW(g_HWND, L"You must restart your system to complete the installation.\nRestart now?",
           k_7zip_Setup, MB_YESNO | MB_DEFBUTTON2) == IDYES)
       {
-        #ifndef UNDER_CE
         
         // Get a token for this process.
         HANDLE hToken;
@@ -1762,7 +1574,6 @@ if (res == SZ_OK)
           }
         }
 
-        #endif
       }
     }
     

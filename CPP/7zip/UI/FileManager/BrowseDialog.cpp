@@ -5,18 +5,15 @@
 #include "../../../Common/MyWindows.h"
 
 #include "../../../Common/IntToString.h"
+#include "../../../Common/MyCom.h"
 
-#ifndef UNDER_CE
+#include "../../../Windows/COM.h"
 #include "../../../Windows/CommonDialog.h"
 #include "../../../Windows/Shell.h"
-#endif
 
 #include "../../../Windows/FileName.h"
 #include "../../../Windows/FileFind.h"
 
-#ifdef UNDER_CE
-#include <commdlg.h>
-#endif
 
 #include "BrowseDialog.h"
 
@@ -165,9 +162,7 @@ bool CBrowseDialog::OnInit()
   _filterCombo.Attach(GetItem(IDC_BROWSE_FILTER));
   _pathEdit.Attach(GetItem(IDE_BROWSE_PATH));
 
-  #ifndef UNDER_CE
   _list.SetUnicodeFormat();
-  #endif
 
   #ifndef Z7_SFX
   CFmSettings st;
@@ -225,14 +220,10 @@ bool CBrowseDialog::OnInit()
   }
 
   _list.InsertItem(0, L"12345678901234567"
-      #ifndef UNDER_CE
       L"1234567890"
-      #endif
       );
   _list.SetSubItem(0, 1, L"2009-09-09"
-      #ifndef UNDER_CE
       L" 09:09"
-      #endif
       );
   _list.SetSubItem(0, 2, L"9999 MB");
   for (int i = 0; i < 3; i++)
@@ -247,7 +238,7 @@ bool CBrowseDialog::OnInit()
   _topDirPrefix.Empty();
   {
     unsigned rootSize = GetRootPrefixSize(FilePath);
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     // We can go up from root folder to drives list
     if (IsDrivePath(FilePath))
       rootSize = 0;
@@ -283,11 +274,9 @@ bool CBrowseDialog::OnInit()
     NormalizeDirPathPrefix(name);
   _pathEdit.SetText(name);
 
-  #ifndef UNDER_CE
   /* If we clear UISF_HIDEFOCUS, the focus rectangle in ListView will be visible,
      even if we use mouse for pressing the button to open this dialog. */
   PostMsg(Z7_WIN_WM_UPDATEUISTATE, MAKEWPARAM(Z7_WIN_UIS_CLEAR, Z7_WIN_UISF_HIDEFOCUS));
-  #endif
 
 #if 0
   {
@@ -572,7 +561,6 @@ HRESULT CBrowseDialog::Reload(const UString &pathPrefix, const UString &selected
 {
   CObjectVector<CFileInfo> files;
   
-  #ifndef UNDER_CE
   bool isDrive = false;
   if (pathPrefix.IsEmpty() || pathPrefix.IsEqualTo(kSuperPathPrefix))
   {
@@ -592,7 +580,6 @@ HRESULT CBrowseDialog::Reload(const UString &pathPrefix, const UString &selected
     }
   }
   else
-  #endif
   {
     const UStringVector *masks = NULL;
     if (!Filters.IsEmpty() && _filterCombo.GetCount() > 0)
@@ -687,7 +674,6 @@ HRESULT CBrowseDialog::Reload(const UString &pathPrefix, const UString &selected
     item.pszText = name.Ptr_non_const();
 
     const UString fullPath = DirPrefix + name;
-    #ifndef UNDER_CE
     if (isDrive)
     {
       item.iImage = Shell_GetFileInfo_SysIconIndex_for_Path(
@@ -695,7 +681,6 @@ HRESULT CBrowseDialog::Reload(const UString &pathPrefix, const UString &selected
           FILE_ATTRIBUTE_DIRECTORY);
     }
     else
-    #endif
       item.iImage = _extToIconMap.GetIconIndex(fi.Attrib, fullPath);
     if (item.iImage < 0)
         item.iImage = 0;
@@ -705,11 +690,7 @@ HRESULT CBrowseDialog::Reload(const UString &pathPrefix, const UString &selected
       s[0] = 0;
       if (!FILETIME_IsZero(fi.MTime))
         ConvertUtcFileTimeToString(fi.MTime, s,
-            #ifndef UNDER_CE
               kTimestampPrintLevel_MIN
-            #else
-              kTimestampPrintLevel_DAY
-            #endif
               );
       _list.SetSubItem(index, subItem++, s);
     }
@@ -869,20 +850,58 @@ void CBrowseDialog::FinishOnOK()
 #endif // USE_MY_BROWSE_DIALOG
 
 
+static HRESULT BrowseForFileSystemFolder(HWND owner, LPCWSTR title, LPCWSTR path, UString &resultPath)
+{
+  NWindows::NCOM::CComInitializer com;
+  const HRESULT comResult = com.GetResult();
+  if (FAILED(comResult))
+    return comResult;
+
+  CMyComPtr<IFileOpenDialog> dialog;
+  RINOK(dialog.CoCreateInstance(__uuidof(FileOpenDialog), __uuidof(IFileOpenDialog), NULL, CLSCTX_INPROC_SERVER))
+
+  FILEOPENDIALOGOPTIONS options;
+  RINOK(dialog->GetOptions(&options))
+  RINOK(dialog->SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_NOCHANGEDIR))
+  if (title && *title)
+  {
+    RINOK(dialog->SetTitle(title))
+  }
+  if (path && *path)
+  {
+    CMyComPtr<IShellItem> folder;
+    if (SUCCEEDED(::SHCreateItemFromParsingName(path, NULL, __uuidof(IShellItem), (void **)&folder)))
+      dialog->SetFolder(folder);
+  }
+
+  RINOK(dialog->Show(owner))
+  CMyComPtr<IShellItem> folder;
+  RINOK(dialog->GetResult(&folder))
+  struct CFolderPath
+  {
+    PWSTR Value;
+    CFolderPath(): Value(NULL) {}
+    ~CFolderPath() { ::CoTaskMemFree(Value); }
+  } pathBuffer;
+  RINOK(folder->GetDisplayName(SIGDN_FILESYSPATH, &pathBuffer.Value))
+  resultPath = pathBuffer.Value;
+  return S_OK;
+}
 
 bool MyBrowseForFolder(HWND owner, LPCWSTR title, LPCWSTR path, UString &resultPath)
 {
   resultPath.Empty();
 
-  #ifndef UNDER_CE
-
 #ifdef USE_MY_BROWSE_DIALOG
-  if (!IsSuperOrDevicePath(path))
-  if (MyStringLen(path) < MAX_PATH)
+  if (!path || (!IsSuperOrDevicePath(path) && MyStringLen(path) < MAX_PATH))
 #endif
-    return NShell::BrowseForFolder(owner, title, path, resultPath);
-
-  #endif //  UNDER_CE
+  {
+    const HRESULT res = BrowseForFileSystemFolder(owner, title, path, resultPath);
+    if (res == S_OK)
+      return true;
+    if (res == HRESULT_FROM_WIN32(ERROR_CANCELLED))
+      return false;
+  }
 
   #ifdef USE_MY_BROWSE_DIALOG
 
@@ -897,6 +916,8 @@ bool MyBrowseForFolder(HWND owner, LPCWSTR title, LPCWSTR path, UString &resultP
   resultPath = dialog.FilePath;
   return true;
 
+  #else
+  return false;
   #endif
 }
 
@@ -905,7 +926,6 @@ bool MyBrowseForFolder(HWND owner, LPCWSTR title, LPCWSTR path, UString &resultP
 
 bool CBrowseInfo::BrowseForFile(const CObjectVector<CBrowseFilterInfo> &filters)
 {
-#ifndef UNDER_CE
 #ifdef USE_MY_BROWSE_DIALOG
   /* win10:
      GetOpenFileName() for FilePath doesn't support super prefix "\\\\?\\"
@@ -943,9 +963,6 @@ bool CBrowseInfo::BrowseForFile(const CObjectVector<CBrowseFilterInfo> &filters)
       return true;
     FilePath = filePath_Store;
 
-  #ifdef UNDER_CE
-    return false;
-  #else
     // maybe we must use GetLastError in WinCE.
     const DWORD errorCode = CommDlgExtendedError();
   #ifdef USE_MY_BROWSE_DIALOG
@@ -974,10 +991,8 @@ bool CBrowseInfo::BrowseForFile(const CObjectVector<CBrowseFilterInfo> &filters)
       s += FilePath;
       MessageBox_Error_Global(hwndOwner, s);
     }
-  #endif // UNDER_CE
   }
 
-#endif // UNDER_CE
   
 #ifdef USE_MY_BROWSE_DIALOG
 
@@ -1028,7 +1043,7 @@ bool CorrectFsPath(const UString &relBase, const UString &path2, UString &result
   
   if (IsAbsolutePath(path))
   {
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     if (IsSuperOrDevicePath(path))
     {
       result = path;
@@ -1039,7 +1054,7 @@ bool CorrectFsPath(const UString &relBase, const UString &path2, UString &result
   }
   else
   {
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     if (IsSuperOrDevicePath(relBase))
     {
       result = path;

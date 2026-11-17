@@ -4,7 +4,7 @@
 
 // #include <stdio.h>
 
-#if (defined(_WIN32) || defined(OS2) || defined(MSDOS)) && !defined(UNDER_CE)
+#if (defined(_WIN32) || defined(OS2) || defined(MSDOS))
 #include <fcntl.h>
 #include <io.h>
 #define MY_SET_BINARY_MODE(file) _setmode(_fileno(file), O_BINARY)
@@ -19,8 +19,6 @@
 
 #include "../../../Common/MyWindows.h"
 #include "../../../Common/MyInitGuid.h"
-
-#include "../../../Windows/NtCheck.h"
 
 #ifndef Z7_ST
 #include "../../../Windows/System.h"
@@ -321,9 +319,6 @@ static int Error_HRESULT(const char *s, HRESULT res)
   return 1;
 }
 
-#if defined(_UNICODE) && !defined(_WIN64) && !defined(UNDER_CE)
-#define NT_CHECK_FAIL_ACTION PrintError("Unsupported Windows version"); return 1;
-#endif
 
 static void AddProp(CObjectVector<CProperty> &props2, const char *name, const wchar_t *val)
 {
@@ -334,7 +329,6 @@ static void AddProp(CObjectVector<CProperty> &props2, const char *name, const wc
 
 static int main2(int numArgs, const char *args[])
 {
-  NT_CHECK
 
   if (numArgs == 1)
   {

@@ -7,7 +7,6 @@
 
 #ifdef _WIN32
 
-#ifndef Z7_OLD_WIN_SDK
 
 #if defined(__MINGW32__) || defined(__MINGW64__)
 #include <psapi.h>
@@ -15,23 +14,6 @@
 #include <Psapi.h>
 #endif
 
-#else // Z7_OLD_WIN_SDK
-
-typedef struct {
-    DWORD cb;
-    DWORD PageFaultCount;
-    SIZE_T PeakWorkingSetSize;
-    SIZE_T WorkingSetSize;
-    SIZE_T QuotaPeakPagedPoolUsage;
-    SIZE_T QuotaPagedPoolUsage;
-    SIZE_T QuotaPeakNonPagedPoolUsage;
-    SIZE_T QuotaNonPagedPoolUsage;
-    SIZE_T PagefileUsage;
-    SIZE_T PeakPagefileUsage;
-} PROCESS_MEMORY_COUNTERS;
-typedef PROCESS_MEMORY_COUNTERS *PPROCESS_MEMORY_COUNTERS;
-
-#endif // Z7_OLD_WIN_SDK
 
 #else // _WIN32
 #include <unistd.h>
@@ -566,7 +548,6 @@ static void PrintTime(const char *s, UInt64 val, UInt64 total)
   *g_StdStream << '%';
 }
 
-#ifndef UNDER_CE
 
 #define SHIFT_SIZE_VALUE(x, num) (((x) + (1 << (num)) - 1) >> (num))
 
@@ -594,7 +575,6 @@ typedef BOOL (WINAPI *Func_GetProcessMemoryInfo)(HANDLE Process,
 typedef BOOL (WINAPI *Func_QueryProcessCycleTime)(HANDLE Process, PULONG64 CycleTime);
 EXTERN_C_END
 
-#endif
 
 static inline UInt64 GetTime64(const FILETIME &t) { return ((UInt64)t.dwHighDateTime << 32) | t.dwLowDateTime; }
 
@@ -602,18 +582,13 @@ static void PrintStat()
 {
   FILETIME creationTimeFT, exitTimeFT, kernelTimeFT, userTimeFT;
   if (!
-      #ifdef UNDER_CE
-        ::GetThreadTimes(::GetCurrentThread()
-      #else
         // NT 3.5
         ::GetProcessTimes(::GetCurrentProcess()
-      #endif
       , &creationTimeFT, &exitTimeFT, &kernelTimeFT, &userTimeFT))
     return;
   FILETIME curTimeFT;
   NTime::GetCurUtc_FiTime(curTimeFT);
 
-  #ifndef UNDER_CE
   
 Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
 
@@ -656,7 +631,6 @@ Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
       cycleDefined = my_QueryProcessCycleTime(GetCurrentProcess(), &cycleTime);
   }
 
-  #endif
 
   UInt64 curTime = GetTime64(curTimeFT);
   UInt64 creationTime = GetTime64(creationTimeFT);
@@ -669,18 +643,15 @@ Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
 
   const UInt64 processTime = kernelTime + userTime;
   
-  #ifndef UNDER_CE
   if (cycleDefined)
   {
     *g_StdStream << "    Cnt:";
     PrintNum(cycleTime / 1000000, 15);
     *g_StdStream << " MCycles";
   }
-  #endif
 
   PrintTime("User   ", userTime, totalTime);
 
-  #ifndef UNDER_CE
   if (cycleDefined)
   {
     *g_StdStream << "    Freq (cnt/ptime):";
@@ -690,17 +661,12 @@ Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
     PrintNum(cycleTime / us, 6);
     *g_StdStream << " MHz";
   }
-  #endif
   
   PrintTime("Process", processTime, totalTime);
-  #ifndef UNDER_CE
   if (memDefined) PrintMemUsage("Virtual ", m.PeakPagefileUsage);
-  #endif
   
   PrintTime("Global ", totalTime, totalTime);
-  #ifndef UNDER_CE
   if (memDefined) PrintMemUsage("Physical", m.PeakWorkingSetSize);
-  #endif
   *g_StdStream << endl;
 }
 
@@ -819,7 +785,7 @@ int Main2(
     { unsigned k = sizeof(void *); if (k != MY_CPU_SIZEOF_POINTER) throw "incorrect MY_CPU_PTR_SIZE"; }
   #endif
 
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   SetFileApisToOEM();
   #endif
 
@@ -893,10 +859,8 @@ int Main2(
 
   #endif
 
-  #ifndef UNDER_CE
   if (commandStrings.Size() > 0)
     commandStrings.Delete(0);
-  #endif
 
   if (commandStrings.Size() == 0)
   {
@@ -992,11 +956,9 @@ int Main2(
   {
     #ifdef _WIN32
     
-    #if !defined(UNDER_CE)
     CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
     if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &consoleInfo))
       consoleWidth = (USHORT)consoleInfo.dwSize.X;
-    #endif
     
     #else
     

@@ -77,11 +77,6 @@ typedef struct MY_GROUP_AFFINITY {
     WORD   Reserved[3];
 } MY_GROUP_AFFINITY, *MY_PGROUP_AFFINITY;
 
-typedef BOOL (WINAPI *Func_SetThreadGroupAffinity)(
-    HANDLE hThread,
-    CONST MY_GROUP_AFFINITY *GroupAffinity,
-    MY_PGROUP_AFFINITY PreviousGroupAffinity);
-
 typedef BOOL (WINAPI *Func_GetThreadGroupAffinity)(
     HANDLE hThread,
     MY_PGROUP_AFFINITY GroupAffinity);
@@ -158,15 +153,10 @@ static void PrintProcess_Info()
    PE::SizeOfStackReserve == 1 MiB in exe file with default linker options.
    Windows aligns specified value to the next 64 KB range. */
 static const unsigned k_StackSize_ReserveSize =
-  #ifdef UNDER_CE
-    1 << 17;
-  #else
     1 << 20;
-  #endif
 
 WRes Thread_Create(CThread *p, THREAD_FUNC_TYPE func, LPVOID param)
 {
-  /* Windows Me/98/95: threadId parameter may not be NULL in _beginthreadex/CreateThread functions */
 
   #ifdef USE_THREADS_CreateThread
 
@@ -233,7 +223,6 @@ WRes Thread_Create_With_Affinity(CThread *p, THREAD_FUNC_TYPE func, LPVOID param
   
   #else
   
-  /* Windows Me/98/95: threadId parameter may not be NULL in _beginthreadex/CreateThread functions */
   HANDLE h;
   WRes wres;
   unsigned threadId;
@@ -282,7 +271,6 @@ WRes Thread_Create_With_Group(CThread *p, THREAD_FUNC_TYPE func, LPVOID param, u
   
 #else
   
-  /* Windows Me/98/95: threadId parameter may not be NULL in _beginthreadex/CreateThread functions */
   HANDLE h;
   WRes wres;
   unsigned threadId;
@@ -291,44 +279,12 @@ WRes Thread_Create_With_Group(CThread *p, THREAD_FUNC_TYPE func, LPVOID param, u
   wres = HandleToWRes(h);
   if (h)
   {
-    // PrintProcess_Info();
     {
-      const
-         Func_SetThreadGroupAffinity fn =
-        (Func_SetThreadGroupAffinity) Z7_CAST_FUNC_C GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
-             "SetThreadGroupAffinity");
-      if (fn)
-      {
-        // WRes wres2;
-        MY_GROUP_AFFINITY groupAffinity, prev_groupAffinity;
-        memset(&groupAffinity, 0, sizeof(groupAffinity));
-        // groupAffinity.Mask must use only bits that supported by current group
-        // (groupAffinity.Mask = 0) means all allowed bits
-        groupAffinity.Mask = affinityMask;
-        groupAffinity.Group = (WORD)group;
-        // wres2 =
-        fn(h, &groupAffinity, &prev_groupAffinity);
-        /*
-        if (groupAffinity.Group == prev_groupAffinity.Group)
-          wres2 = wres2;
-        else
-          wres2 = wres2;
-        if (wres2 == 0)
-        {
-          wres2 = GetError();
-          PRF(printf("\n==SetThreadGroupAffinity error: %u\n", wres2);)
-        }
-        else
-        {
-          PRF(printf("\n==Thread_Create_With_Group::SetThreadGroupAffinity()"
-            " threadId = %6u"
-            " group=%u mask=%x\n",
-            threadId,
-            prev_groupAffinity.Group,
-            (UInt32)prev_groupAffinity.Mask);)
-        }
-        */
-      }
+      GROUP_AFFINITY groupAffinity;
+      memset(&groupAffinity, 0, sizeof(groupAffinity));
+      groupAffinity.Mask = affinityMask;
+      groupAffinity.Group = (WORD)group;
+      SetThreadGroupAffinity(h, &groupAffinity, NULL);
     }
     {
       const DWORD prevSuspendCount = ResumeThread(h);

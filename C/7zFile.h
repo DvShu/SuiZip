@@ -35,10 +35,8 @@ typedef struct
 } CSzFile;
 
 void File_Construct(CSzFile *p);
-#if !defined(UNDER_CE) || !defined(USE_WINDOWS_FILE)
 WRes InFile_Open(CSzFile *p, const char *name);
 WRes OutFile_Open(CSzFile *p, const char *name);
-#endif
 #ifdef USE_WINDOWS_FILE
 WRes InFile_OpenW(CSzFile *p, const WCHAR *name);
 WRes OutFile_OpenW(CSzFile *p, const WCHAR *name);

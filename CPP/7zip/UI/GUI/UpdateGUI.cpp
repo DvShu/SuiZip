@@ -378,7 +378,7 @@ static HRESULT ShowDialog(
 
   /*
   // v23: we restore current dir in dialog code
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   CCurrentDirRestorer curDirRestorer;
   #endif
   */
@@ -468,7 +468,7 @@ static HRESULT ShowDialog(
     options.PreserveATime = di.PreserveATime.Val;
  
   /*
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   curDirRestorer.NeedRestore = dialog.CurrentDirWasChanged;
   #endif
   */

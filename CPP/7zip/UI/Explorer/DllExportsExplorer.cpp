@@ -34,7 +34,6 @@
 
 #include "../../../Windows/DLL.h"
 #include "../../../Windows/ErrorMsg.h"
-#include "../../../Windows/NtCheck.h"
 #include "../../../Windows/Registry.h"
 
 #include "../../MyVersion.h"
@@ -125,33 +124,21 @@ Z7_COMWF_B CShellExtClassFactory::LockServer(BOOL /* fLock */)
 }
 
 
-#if defined(_UNICODE) && !defined(_WIN64) && !defined(UNDER_CE)
-#define NT_CHECK_FAIL_ACTION return FALSE;
-#endif
 
 extern "C"
 BOOL WINAPI DllMain(
-  #ifdef UNDER_CE
-  HANDLE hInstance
-  #else
   HINSTANCE hInstance
-  #endif
   , DWORD dwReason, LPVOID);
 
 extern "C"
 BOOL WINAPI DllMain(
-  #ifdef UNDER_CE
-  HANDLE hInstance
-  #else
   HINSTANCE hInstance
-  #endif
   , DWORD dwReason, LPVOID)
 {
   if (dwReason == DLL_PROCESS_ATTACH)
   {
     g_hInstance = (HINSTANCE)hInstance;
     ODS("In DLLMain, DLL_PROCESS_ATTACH\r\n");
-    NT_CHECK
   }
   else if (dwReason == DLL_PROCESS_DETACH)
   {
@@ -223,9 +210,6 @@ static BOOL RegisterServer()
     keyInproc.SetValue(TEXT("ThreadingModel"), TEXT("Apartment"));
   }
  
-  #if !defined(_WIN64) && !defined(UNDER_CE)
-  if (IsItWindowsNT())
-  #endif
   {
     NRegistry::CKey key;
     if (key.Create(HKEY_LOCAL_MACHINE, k_Approved, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE) == NOERROR)
@@ -249,9 +233,6 @@ static BOOL UnregisterServer()
   RegDeleteKey(HKEY_CLASSES_ROOT, s + TEXT("\\InprocServer32"));
   RegDeleteKey(HKEY_CLASSES_ROOT, s);
 
-  #if !defined(_WIN64) && !defined(UNDER_CE)
-  if (IsItWindowsNT())
-  #endif
   {
     HKEY hKey;
     if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, k_Approved, 0, KEY_SET_VALUE, &hKey) == NOERROR)

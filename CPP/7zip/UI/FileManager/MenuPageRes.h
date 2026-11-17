@@ -6,8 +6,6 @@
 #define IDT_SYSTEM_CONTEXT_MENU_ITEMS   2303
 #define IDX_SYSTEM_ICON_IN_MENU         2304
 
-#define IDX_SYSTEM_INTEGRATE_TO_MENU_2  2310
-
 #define IDT_SYSTEM_ZONE                 3440
 #define IDT_ZONE_FOR_OFFICE             3441
 

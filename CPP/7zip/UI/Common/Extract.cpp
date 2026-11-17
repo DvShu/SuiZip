@@ -33,6 +33,30 @@ static void SetErrorMessage(const char *message,
 }
 
 
+// A directory and its descendants form one top-level entry. A top-level
+// file on its own also qualifies, but any additional entry needs a wrapper.
+static bool IsSingleExtractRoot(const CReadArcItem &item, bool keepPaths,
+    bool firstItem, UString &rootFolder)
+{
+  if (!keepPaths)
+    return firstItem;
+  if (item.PathParts.IsEmpty())
+    return false;
+
+  const UString &name = item.PathParts.Front();
+  if (name.IsEmpty() || name.IsEqualTo(".") || name.IsEqualTo(".."))
+    return false;
+  if (item.PathParts.Size() == 1 && !item.MainIsDir)
+    return firstItem;
+  if (firstItem)
+  {
+    rootFolder = name;
+    return true;
+  }
+  return CompareFileNames(rootFolder, name) == 0;
+}
+
+
 static HRESULT DecompressArchive(
     CCodecs *codecs,
     const CArchiveLink &arcLink,
@@ -77,24 +101,25 @@ static HRESULT DecompressArchive(
   }
 
   bool elimIsPossible = false;
-  UString elimPrefix; // only pure name without dir delimiter
-  FString outDirReduced = outDir;
+  bool smartSingleRoot = options.SmartExtract.Val &&
+      !options.TestMode && !options.StdInMode && !options.StdOutMode;
+  UString outDirName;
+  UString parentDir;
   
-  if (options.ElimDup.Val && options.PathMode != NExtract::NPathMode::kAbsPaths)
+  if ((options.ElimDup.Val || smartSingleRoot) &&
+      options.PathMode != NExtract::NPathMode::kAbsPaths)
   {
-    UString dirPrefix;
-    SplitPathToParts_Smart(fs2us(outDir), dirPrefix, elimPrefix);
-    if (!elimPrefix.IsEmpty())
-    {
-      if (IsPathSepar(elimPrefix.Back()))
-        elimPrefix.DeleteBack();
-      if (!elimPrefix.IsEmpty())
-      {
-        outDirReduced = us2fs(dirPrefix);
-        elimIsPossible = true;
-      }
-    }
+    SplitPathToParts_Smart(fs2us(outDir), parentDir, outDirName);
+    if (!outDirName.IsEmpty() && IsPathSepar(outDirName.Back()))
+      outDirName.DeleteBack();
+    elimIsPossible = options.ElimDup.Val && !outDirName.IsEmpty();
   }
+  smartSingleRoot = smartSingleRoot && !outDirName.IsEmpty()
+      && !outDirName.IsEqualTo(".") && !outDirName.IsEqualTo("..");
+  bool smartHasItem = false;
+  UString smartRootFolder;
+  const bool keepPaths = options.PathMode == NExtract::NPathMode::kFullPaths ||
+      options.PathMode == NExtract::NPathMode::kCurPaths;
 
   const bool allFilesAreAllowed = wildcardCensor.AreAllAllowed();
 
@@ -108,6 +133,7 @@ static HRESULT DecompressArchive(
     for (UInt32 i = 0; i < numItems; i++)
     {
       if (elimIsPossible
+          || smartSingleRoot
           || !allFilesAreAllowed
           || options.ExcludeDirItems
           || options.ExcludeFileItems)
@@ -140,11 +166,11 @@ static HRESULT DecompressArchive(
           #else
             item.Path;
           #endif
-        if (!IsPath1PrefixedByPath2(s, elimPrefix))
+        if (!IsPath1PrefixedByPath2(s, outDirName))
           elimIsPossible = false;
         else
         {
-          wchar_t c = s[elimPrefix.Len()];
+          const wchar_t c = s[outDirName.Len()];
           if (c == 0)
           {
             if (!item.MainIsDir)
@@ -171,6 +197,16 @@ static HRESULT DecompressArchive(
       }
 #endif
 
+      if (smartSingleRoot
+          #ifdef SUPPORT_ALT_STREAMS
+          && !item.IsAltStream
+          #endif
+          )
+      {
+        smartSingleRoot = IsSingleExtractRoot(item, keepPaths, !smartHasItem, smartRootFolder);
+        smartHasItem = true;
+      }
+
       realIndices.Add(i);
     }
     
@@ -181,11 +217,13 @@ static HRESULT DecompressArchive(
     }
   }
 
-  if (elimIsPossible)
+  if (smartSingleRoot && smartHasItem)
   {
-    removePathParts.Add(elimPrefix);
-    // outDir = outDirReduced;
+    outDir = us2fs(parentDir);
+    elimIsPossible = false;
   }
+  if (elimIsPossible)
+    removePathParts.Add(outDirName);
 
   #ifdef _WIN32
   // GetCorrectFullFsPath doesn't like "..".
@@ -453,7 +491,7 @@ HRESULT Extract(
       continue;
     }
 
-   #if defined(_WIN32) && !defined(UNDER_CE) && !defined(Z7_SFX)
+   #if defined(_WIN32) && !defined(Z7_SFX)
     if (options.ZoneMode != NExtract::NZoneIdMode::kNone
         && !options.StdInMode)
     {

@@ -25,7 +25,7 @@ static const UInt64 kNumSecondsInFileTime = (UInt64)(Int64)-1 / kNumTimeQuantums
 
 bool DosTime_To_FileTime(UInt32 dosTime, FILETIME &ft) throw()
 {
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   return BOOLToBool(::DosDateTimeToFileTime((UInt16)(dosTime >> 16), (UInt16)(dosTime & 0xFFFF), &ft));
   #else
   ft.dwLowDateTime = 0;
@@ -52,7 +52,7 @@ static const UInt32 kLowDosTime = 0x210000;
 
 bool FileTime_To_DosTime(const FILETIME &ft, UInt32 &dosTime) throw()
 {
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
 
   WORD datePart, timePart;
   if (!::FileTimeToDosDateTime(&ft, &datePart, &timePart))
@@ -274,13 +274,7 @@ void GetCurUtc_FiTime(CFiTime &ft) throw()
 
   // Both variants provide same low resolution on WinXP: about 15 ms.
   // But GetSystemTimeAsFileTime is much faster.
-  #ifdef UNDER_CE
-  SYSTEMTIME st;
-  GetSystemTime(&st);
-  SystemTimeToFileTime(&st, &ft);
-  #else
   GetSystemTimeAsFileTime(&ft);
-  #endif
 
  #else
   

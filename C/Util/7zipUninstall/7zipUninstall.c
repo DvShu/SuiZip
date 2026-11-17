@@ -12,16 +12,6 @@
 #pragma warning(disable : 4201) // nonstandard extension used : nameless struct/union
 #endif
 
-#ifdef Z7_OLD_WIN_SDK
-struct IShellView;
-#define SHFOLDERAPI  EXTERN_C DECLSPEC_IMPORT HRESULT STDAPICALLTYPE
-SHFOLDERAPI SHGetFolderPathW(HWND hwnd, int csidl, HANDLE hToken, DWORD dwFlags, LPWSTR pszPath);
-#define BIF_NEWDIALOGSTYLE     0x0040   // Use the new dialog layout with the ability to resize
-typedef enum {
-    SHGFP_TYPE_CURRENT  = 0,   // current value for user, verify it exists
-    SHGFP_TYPE_DEFAULT  = 1,   // default value, may not exist
-} SHGFP_TYPE;
-#endif
 #if defined(__MINGW32__) || defined(__MINGW64__)
 #include <shlobj.h>
 #else
@@ -32,6 +22,7 @@ typedef enum {
 #include "../../7zVersion.h"
 
 #include "resource.h"
+#include "../LegacyContextMenu.h"
 
 
 
@@ -45,31 +36,12 @@ typedef enum {
 
 // static LPCWSTR const k_7zip = L"7-Zip";
 
-// #define Z7_64BIT_INSTALLER 1
-
-#ifdef _WIN64
-  #define Z7_64BIT_INSTALLER 1
-#endif
-
 #define k_7zip_with_Ver_base LLL(MY_PRODUCT_NAME) L" " LLL(MY_PRODUCT_VERSION)
 
-#ifdef Z7_64BIT_INSTALLER
-
-  // #define USE_7ZIP_32_DLL
-
-  #if defined(_M_ARM64) || defined(_M_ARM)
-    #define k_Postfix  L" (arm64)"
-  #else
-    #define k_Postfix  L" (x64)"
-    #define USE_7ZIP_32_DLL
-  #endif
+#if defined(_M_ARM64) || defined(__aarch64__)
+  #define k_Postfix L" (arm64)"
 #else
-  #if defined(_M_ARM64) || defined(_M_ARM)
-    #define k_Postfix  L" (arm)"
-  #else
-    // #define k_Postfix  L" (x86)"
-    #define k_Postfix
-  #endif
+  #define k_Postfix L" (x64)"
 #endif
 
 #define k_7zip_with_Ver  k_7zip_with_Ver_base k_Postfix
@@ -80,29 +52,7 @@ static LPCWSTR const k_Reg_Software_7zip = L"Software\\7-Zip";
 
 static LPCWSTR const k_Reg_Path = L"Path";
  
-static LPCWSTR const k_Reg_Path32 = L"Path"
-  #ifdef Z7_64BIT_INSTALLER
-    L"64"
-  #else
-    L"32"
-  #endif
-  ;
-
-#if defined(Z7_64BIT_INSTALLER) && !defined(_WIN64)
-  #define k_Reg_WOW_Flag KEY_WOW64_64KEY
-#else
-  #define k_Reg_WOW_Flag 0
-#endif
-
-#ifdef USE_7ZIP_32_DLL
-#ifdef _WIN64
-  #define k_Reg_WOW_Flag_32 KEY_WOW64_32KEY
-#else
-  #define k_Reg_WOW_Flag_32 0
-#endif
-#endif
-
-#define k_7zip_CLSID L"{23170F69-40C1-278A-1000-000100020000}"
+static LPCWSTR const k_Reg_Path64 = L"Path64";
 
 static LPCWSTR const k_Reg_CLSID_7zip = L"CLSID\\" k_7zip_CLSID;
 static LPCWSTR const k_Reg_CLSID_7zip_Inproc = L"CLSID\\" k_7zip_CLSID L"\\InprocServer32";
@@ -118,20 +68,6 @@ static HWND g_HWND;
 static HWND g_Path_HWND;
 static HWND g_InfoLine_HWND;
 static HWND g_Progress_HWND;
-
-// RegDeleteKeyExW is supported starting from win2003sp1/xp-pro-x64
-// Z7_WIN32_WINNT_MIN < 0x0600  // Vista
-#if !defined(Z7_WIN32_WINNT_MIN) \
-    || Z7_WIN32_WINNT_MIN  < 0x0502  /* < win2003 */ \
-    || Z7_WIN32_WINNT_MIN == 0x0502 && !defined(_M_AMD64)
-#define Z7_USE_DYN_RegDeleteKeyExW
-#endif
-
-#ifdef Z7_USE_DYN_RegDeleteKeyExW
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-typedef LONG (APIENTRY *Func_RegDeleteKeyExW)(HKEY hKey, LPCWSTR lpSubKey, REGSAM samDesired, DWORD Reserved);
-static Func_RegDeleteKeyExW func_RegDeleteKeyExW;
-#endif
 
 static WCHAR cmd[MAX_PATH + 4];
 static WCHAR cmdError[MAX_PATH + 4];
@@ -235,7 +171,7 @@ static int MyRegistry_QueryString(HKEY hKey, LPCWSTR name, LPWSTR dest)
 static int MyRegistry_QueryString2(HKEY hKey, LPCWSTR keyName, LPCWSTR valName, LPWSTR dest)
 {
   HKEY key = 0;
-  const LONG res = RegOpenKeyExW(hKey, keyName, 0, KEY_READ | k_Reg_WOW_Flag, &key);
+  const LONG res = RegOpenKeyExW(hKey, keyName, 0, KEY_READ, &key);
   if (res != ERROR_SUCCESS)
     return False;
   {
@@ -247,65 +183,13 @@ static int MyRegistry_QueryString2(HKEY hKey, LPCWSTR keyName, LPCWSTR valName, 
 
 static LONG MyRegistry_OpenKey_ReadWrite(HKEY parentKey, LPCWSTR name, HKEY *destKey)
 {
-  return RegOpenKeyExW(parentKey, name, 0, KEY_READ | KEY_WRITE | k_Reg_WOW_Flag, destKey);
+  return RegOpenKeyExW(parentKey, name, 0, KEY_READ | KEY_WRITE, destKey);
 }
 
 static LONG MyRegistry_DeleteKey(HKEY parentKey, LPCWSTR name)
 {
-#if k_Reg_WOW_Flag != 0
-#ifdef Z7_USE_DYN_RegDeleteKeyExW
-    if (!func_RegDeleteKeyExW)
-      return E_FAIL;
-    return func_RegDeleteKeyExW
-#else
-    return      RegDeleteKeyExW
-#endif
-      (parentKey, name, k_Reg_WOW_Flag, 0);
-#else
-    return RegDeleteKeyW(parentKey, name);
-#endif
+  return RegDeleteKeyW(parentKey, name);
 }
-
-#ifdef USE_7ZIP_32_DLL
-
-static int MyRegistry_QueryString2_32(HKEY hKey, LPCWSTR keyName, LPCWSTR valName, LPWSTR dest)
-{
-  HKEY key = 0;
-  const LONG res = RegOpenKeyExW(hKey, keyName, 0, KEY_READ | k_Reg_WOW_Flag_32, &key);
-  if (res != ERROR_SUCCESS)
-    return False;
-  {
-    const BoolInt res2 = MyRegistry_QueryString(key, valName, dest);
-    RegCloseKey(key);
-    return res2;
-  }
-}
-
-static LONG MyRegistry_OpenKey_ReadWrite_32(HKEY parentKey, LPCWSTR name, HKEY *destKey)
-{
-  return RegOpenKeyExW(parentKey, name, 0, KEY_READ | KEY_WRITE | k_Reg_WOW_Flag_32, destKey);
-}
-
-static LONG MyRegistry_DeleteKey_32(HKEY parentKey, LPCWSTR name)
-{
-#if k_Reg_WOW_Flag_32 != 0
-#ifdef Z7_USE_DYN_RegDeleteKeyExW
-    if (!func_RegDeleteKeyExW)
-      return E_FAIL;
-    return func_RegDeleteKeyExW
-#else
-    return      RegDeleteKeyExW
-#endif
-      (parentKey, name, k_Reg_WOW_Flag_32, 0);
-#else
-    return RegDeleteKeyW(parentKey, name);
-#endif
-}
-
-#endif
-
-
-
 
 static void MyReg_DeleteVal_Path_if_Equal(HKEY hKey, LPCWSTR name)
 {
@@ -324,7 +208,7 @@ static void SetRegKey_Path2(HKEY parentKey)
   const LONG res = MyRegistry_OpenKey_ReadWrite(parentKey, k_Reg_Software_7zip, &key);
   if (res == ERROR_SUCCESS)
   {
-    MyReg_DeleteVal_Path_if_Equal(key, k_Reg_Path32);
+    MyReg_DeleteVal_Path_if_Equal(key, k_Reg_Path64);
     MyReg_DeleteVal_Path_if_Equal(key, k_Reg_Path);
 
     RegCloseKey(key);
@@ -373,11 +257,6 @@ static HRESULT CreateShellLink(LPCWSTR srcPath, LPCWSTR targetPath)
 
 static void SetShellProgramsGroup(HWND hwndOwner)
 {
-  #ifdef UNDER_CE
-
-  UNUSED_VAR(hwndOwner)
-
-  #else
 
   unsigned i = (g_AllUsers ? 1 : 2);
 
@@ -427,7 +306,6 @@ static void SetShellProgramsGroup(HWND hwndOwner)
     }
   }
 
-  #endif
 }
 
 
@@ -504,45 +382,6 @@ static void WriteCLSID(void)
   }
 
   
-  #ifdef USE_7ZIP_32_DLL
-  
-  if (MyRegistry_QueryString2_32(HKEY_CLASSES_ROOT, k_Reg_CLSID_7zip_Inproc, NULL, s))
-  {
-    if (AreEqual_Path_PrefixName(s, path, L"7-zip32.dll"))
-    {
-      {
-        const LONG res = MyRegistry_DeleteKey_32(HKEY_CLASSES_ROOT, k_Reg_CLSID_7zip_Inproc);
-        if (res == ERROR_SUCCESS)
-          MyRegistry_DeleteKey_32(HKEY_CLASSES_ROOT, k_Reg_CLSID_7zip);
-      }
-
-      {
-        unsigned i;
-        for (i = 0; i < Z7_ARRAY_SIZE(k_ShellEx_Items); i++)
-        {
-          WCHAR destPath[MAX_PATH];
-          CpyAscii(destPath, k_ShellEx_Items[i]);
-          CatAscii(destPath, "\\7-Zip");
-          
-          MyRegistry_DeleteKey_32(HKEY_CLASSES_ROOT, destPath);
-        }
-      }
-
-      {
-        HKEY destKey = 0;
-        const LONG res = MyRegistry_OpenKey_ReadWrite_32(HKEY_LOCAL_MACHINE, k_Shell_Approved, &destKey);
-        if (res == ERROR_SUCCESS)
-        {
-          RegDeleteValueW(destKey, k_7zip_CLSID);
-          /* res = */ RegCloseKey(destKey);
-        }
-      }
-    }
-  }
-  
-  #endif
-
-
   if (MyRegistry_QueryString2(HKEY_LOCAL_MACHINE, k_AppPaths_7zFm, NULL, s))
   {
     // RemoveQuotes(s);
@@ -604,12 +443,7 @@ static BoolInt DoesFileOrDirExist(void)
 
 static BOOL RemoveFileAfterReboot2(const WCHAR *s)
 {
-  #ifndef UNDER_CE
   return MoveFileExW(s, NULL, MOVEFILE_DELAY_UNTIL_REBOOT);
-  #else
-  UNUSED_VAR(s)
-  return TRUE;
-  #endif
 }
 
 static BOOL RemoveFileAfterReboot(void)
@@ -676,13 +510,7 @@ static BOOL RemoveDir(void)
 // NUM_LANG_TXT_FILES files are placed before en.ttt
 #define NUM_LANG_TXT_FILES 92
 
-#ifdef USE_7ZIP_32_DLL
-  #define NUM_EXTRA_FILES_64BIT 1
-#else
-  #define NUM_EXTRA_FILES_64BIT 0
-#endif
-
-#define NUM_FILES (NUM_LANG_TXT_FILES + 1 + 13 + NUM_EXTRA_FILES_64BIT)
+#define NUM_FILES (NUM_LANG_TXT_FILES + 1 + 13)
 
 static const char * const k_Names =
   "af an ar ast az ba be bg bn br ca co cs cy da de el eo es et eu ext"
@@ -701,9 +529,6 @@ static const char * const k_Names =
   " 7zG.exe"
   " 7z.dll"
   " 7zFM.exe"
-  #ifdef USE_7ZIP_32_DLL
-  " 7-zip32.dll"
-  #endif
   " 7-zip.dll"
   " Uninstall.exe";
 
@@ -712,7 +537,7 @@ static const char * const k_Names =
 static int Install(void)
 {
   SRes res = SZ_OK;
-  WRes winRes = 0;
+  WRes winRes = RemoveLegacyContextMenu(path, NULL);
   
   // BoolInt needReboot = False;
   const size_t pathLen = wcslen(path);
@@ -857,11 +682,7 @@ static void OnClose(void)
 }
 
 static
-#ifdef Z7_OLD_WIN_SDK
-  BOOL
-#else
   INT_PTR
-#endif
 CALLBACK MyDlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
   UNUSED_VAR(lParam)
@@ -931,11 +752,7 @@ CALLBACK MyDlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-    #ifdef UNDER_CE
-      LPWSTR
-    #else
       LPSTR
-    #endif
     lpCmdLine, int nCmdShow)
 {
   const WCHAR *cmdParams;
@@ -945,24 +762,12 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   UNUSED_VAR(lpCmdLine)
   UNUSED_VAR(nCmdShow)
 
-#ifndef UNDER_CE
   CoInitialize(NULL);
-#endif
-
-#ifndef UNDER_CE
-#ifdef Z7_USE_DYN_RegDeleteKeyExW
-   func_RegDeleteKeyExW =
-  (Func_RegDeleteKeyExW) Z7_CAST_FUNC_C GetProcAddress(GetModuleHandleW(L"advapi32.dll"),
-       "RegDeleteKeyExW");
-#endif
-#endif
 
   {
     const WCHAR *s = GetCommandLineW();
 
-    #ifndef UNDER_CE
     s = GetCmdParam(s);
-    #endif
 
     cmdParams = s;
 
@@ -1158,10 +963,10 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   {
     HKEY key = 0;
     BoolInt ok = False;
-    LONG res = RegOpenKeyExW(HKEY_CURRENT_USER, k_Reg_Software_7zip, 0, KEY_READ | k_Reg_WOW_Flag, &key);
+    LONG res = RegOpenKeyExW(HKEY_CURRENT_USER, k_Reg_Software_7zip, 0, KEY_READ, &key);
     if (res == ERROR_SUCCESS)
     {
-      ok = MyRegistry_QueryString(key, k_Reg_Path32, path);
+      ok = MyRegistry_QueryString(key, k_Reg_Path64, path);
       // ok = MyRegistry_QueryString(key, k_Reg_Path, path);
       RegCloseKey(key);
     }

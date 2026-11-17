@@ -11,7 +11,7 @@
 <?define ProductName = "7-Zip" ?>
 
 <?ifndef MyCPU?>
-  <?define MyCPU = "Intel" ?>
+  <?define MyCPU = "x64" ?>
 <?endif?>
 
 <?if $(var.MyCPU) = "x64" ?>
@@ -19,24 +19,17 @@
   <?define PFilesFolder = "ProgramFiles64Folder" ?>
   <?define Platforms = "x64" ?>
   <?define CpuPostfix = " (x64 edition)" ?>
-  <?define Is64 = "yes" ?>
-  <?define NumBits = "64" ?>
 <?elseif $(var.MyCPU) = "ia64" ?>
   <?define CpuId = "3" ?>
   <?define PFilesFolder = "ProgramFiles64Folder" ?>
   <?define Platforms = "Intel64" ?>
   <?define CpuPostfix = " (ia64 edition)" ?>
-  <?define Is64 = "yes" ?>
-  <?define NumBits = "64" ?>
 <?else ?>
-  <?define CpuId = "1" ?>
-  <?define PFilesFolder = "ProgramFilesFolder" ?>
-  <?define Platforms = "Intel" ?>
-  <?define CpuPostfix = "" ?>
-  <?define Is64 = "no" ?>
-  <?define NumBits = "32" ?>
+  <?error A 64-bit target is required. ?>
 <?endif ?>
 
+<?define Is64 = "yes" ?>
+<?define NumBits = "64" ?>
 
 <?define ShellExtId = "{23170F69-40C1-278A-1000-000100020000}" ?>
 
@@ -59,7 +52,6 @@
 <?define CompFormats  = "$(var.CompId)10" ?>
 <?define CompCodecs   = "$(var.CompId)11" ?>
 <?define CompLang     = "$(var.CompId)12" ?>
-<?define CompShellExt2 = "$(var.CompId)13" ?>
 <?define CompInstallRegCU         = "$(var.CompId)80" ?>
 <?define CompInstallRegLM         = "$(var.CompId)81" ?>
 <?define CompInstallRegWild       = "$(var.CompId)82" ?>
@@ -95,6 +87,8 @@
         Compressed="yes"
         Platforms="$(var.Platforms)"
         />
+
+    <Condition Message="Windows 10 or later is required.">Installed OR WindowsBuild &gt;= 10240</Condition>
 
     <!-- Major upgrade -->
     <Upgrade Id="$(var.UpgradeCode)">
@@ -190,21 +184,6 @@
               <Shortcut Id="startmenuFmShortcut" Directory="PMenu" Name="7zipFM" LongName="7-Zip File Manager" />
             </File>
           </Component>
-
-          <?if $(var.MyCPU) = "x64" ?>
-
-          <Component Id="ShellExt32" Guid="$(var.CompShellExt2)" DiskId="1" Win64="no">
-            <File Id="_7zip32.dll" Name="7-zip32.dll" />
-            <Registry Id="shellReg0_32" Action="write" Type="string" Root="HKCR"
-               Key="CLSID\$(var.ShellExtId)\InprocServer32"
-               Value="[INSTALLDIR]7-zip32.dll" />
-            <Registry Id="shellReg1_32" Action="write" Type="string" Root="HKCR"
-               Key="CLSID\$(var.ShellExtId)\InprocServer32"
-               Name="ThreadingModel"
-               Value="Apartment" />
-          </Component>
-
-          <?endif ?>
 
           <Component Id="ShellExt" Guid="$(var.CompShellExt)" DiskId="1" Win64="$(var.Is64)">
             <File Id="_7zip.dll" Name="7-zip.dll" />
@@ -365,9 +344,6 @@
          Absent="disallow" AllowAdvertise="no">
         <ComponentRef Id="Fm" />
         <ComponentRef Id="ShellExt" />
-        <?if $(var.MyCPU) = "x64" ?>
-        <ComponentRef Id="ShellExt32" />
-        <?endif ?>
         <ComponentRef Id="CmdLine" />
         <ComponentRef Id="Gui" />
         <ComponentRef Id="GuiSfx" />

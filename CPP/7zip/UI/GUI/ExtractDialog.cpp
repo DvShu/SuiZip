@@ -80,6 +80,9 @@ static const UInt32 kLangIDs[] =
   // IDX_EXTRACT_ALT_STREAMS,
   IDX_EXTRACT_NT_SECUR,
   IDX_EXTRACT_ELIM_DUP,
+  #ifndef Z7_SFX
+  IDX_SMART_EXTRACT,
+  #endif
   IDG_PASSWORD,
   IDX_PASSWORD_SHOW
 };
@@ -180,6 +183,7 @@ bool CExtractDialog::OnInit()
   // CheckButton_TwoBools(IDX_EXTRACT_ALT_STREAMS, AltStreams, _info.AltStreams);
   CheckButton_TwoBools(IDX_EXTRACT_NT_SECUR,    NtSecurity, _info.NtSecurity);
   CheckButton_TwoBools(IDX_EXTRACT_ELIM_DUP,    ElimDup,    _info.ElimDup);
+  CheckButton_TwoBools(IDX_SMART_EXTRACT,      SmartExtract, _info.SmartExtract);
   
   CheckButton(IDX_PASSWORD_SHOW, _info.ShowPassword.Val);
   UpdatePasswordControl();
@@ -317,6 +321,7 @@ void CExtractDialog::OnOK()
   // GetButton_Bools(IDX_EXTRACT_ALT_STREAMS, AltStreams, _info.AltStreams);
   GetButton_Bools(IDX_EXTRACT_NT_SECUR,    NtSecurity, _info.NtSecurity);
   GetButton_Bools(IDX_EXTRACT_ELIM_DUP,    ElimDup,    _info.ElimDup);
+  GetButton_Bools(IDX_SMART_EXTRACT,      SmartExtract, _info.SmartExtract);
 
   bool showPassword = IsShowPasswordChecked();
   if (showPassword != _info.ShowPassword.Val)
@@ -371,13 +376,17 @@ void CExtractDialog::OnOK()
   NName::NormalizeDirPathPrefix(s);
   
   #ifndef Z7_SFX
-  
+
+  // A custom full path is the destination base. An explicit optional name
+  // or the original suggested path already supplies the wrapper folder.
+  SmartExtractAddArcName = (CompareFileNames(s, DirPath) != 0);
   const bool splitDest = IsButtonCheckedBool(IDX_EXTRACT_NAME_ENABLE);
   if (splitDest)
   {
     UString pathName;
     _pathName.GetText(pathName);
     pathName.Trim();
+    SmartExtractAddArcName = pathName.IsEmpty();
     s += pathName;
     NName::NormalizeDirPathPrefix(s);
   }

@@ -1,5 +1,6 @@
 // ContextMenu.cpp
 // Modified 2026-11-16 for the fork: use its name in Explorer menus.
+// Modified 2026-11-17 for the fork: display a color logo on top-level context menu entries.
 
 #include "StdAfx.h"
 
@@ -46,9 +47,7 @@ using namespace NWindows;
 using namespace NFile;
 using namespace NDir;
 
-#ifndef UNDER_CE
 #define EMAIL_SUPPORT 1
-#endif
 
 extern LONG g_DllRefCount;
 
@@ -56,11 +55,7 @@ extern LONG g_DllRefCount;
 extern HINSTANCE g_hInstance;
 #endif
     
-#ifdef UNDER_CE
-  #define MY_IS_INTRESOURCE(_r) ((((ULONG_PTR)(_r)) >> 16) == 0)
-#else
   #define MY_IS_INTRESOURCE(_r) IS_INTRESOURCE(_r)
-#endif
 
 
 #ifdef SHOW_DEBUG_CTX_MENU
@@ -82,7 +77,6 @@ static void PrintStringA(const char *name, LPCSTR ptr)
   OutputDebugStringA(m);
 }
 
-#if !defined(UNDER_CE)
 static void PrintStringW(const char *name, LPCWSTR ptr)
 {
   UString m;
@@ -99,7 +93,6 @@ static void PrintStringW(const char *name, LPCWSTR ptr)
   }
   OutputDebugStringW(m);
 }
-#endif
 
 static void Print_Ptr(const void *p, const char *s)
 {
@@ -214,7 +207,6 @@ Z7_COMWF_B CZipContextMenu::Initialize(LPCITEMIDLIST pidlFolder, LPDATAOBJECT da
   if (pidlFolder)
   {
     ODS("==== CZipContextMenu::Initialize (pidlFolder != 0)")
-   #ifndef UNDER_CE
     if (NShell::GetPathFromIDList(pidlFolder, _dropPath))
     {
       ODS("==== CZipContextMenu::Initialize path from (pidl):")
@@ -228,21 +220,18 @@ Z7_COMWF_B CZipContextMenu::Initialize(LPCITEMIDLIST pidlFolder, LPDATAOBJECT da
       _dropMode = !_dropPath.IsEmpty();
     }
     else
-   #endif
       _dropPath.Empty();
   }
 
   if (!dataObject)
     return E_INVALIDARG;
 
- #ifndef UNDER_CE
 
   RINOK(NShell::DataObject_GetData_HDROP_or_IDLIST_Names(dataObject, _fileNames))
   // for (unsigned y = 0; y < 10000; y++)
   if (NShell::DataObject_GetData_FILE_ATTRS(dataObject, _attribs) != S_OK)
     _attribs.Clear();
 
- #endif
 
   ODS_SPRF_s(sprintf(s, "==== CZipContextMenu::Initialize END _files=%d",
     _fileNames.Size()))
@@ -377,6 +366,78 @@ RESOLUTION
   pop-up menu  item in the wID member of the MENUITEMINFO structure.
 */
 
+static int GetMenuIconSize()
+{
+  typedef UINT (WINAPI *Func_GetDpiForWindow)(HWND);
+  const Func_GetDpiForWindow getDpiForWindow = Z7_GET_PROC_ADDRESS(
+      Func_GetDpiForWindow, ::GetModuleHandle(TEXT("user32.dll")), "GetDpiForWindow");
+  const HWND window = ::GetForegroundWindow();
+  if (getDpiForWindow && window)
+  {
+    const UINT dpi = getDpiForWindow(window);
+    if (dpi)
+      return ::MulDiv(16, (int)dpi, 96);
+  }
+  const int size = ::GetSystemMetrics(SM_CXSMICON);
+  return size > 0 ? size : 16;
+}
+static HBITMAP CreateMenuLogo()
+{
+  const int size = GetMenuIconSize();
+  const HICON icon = (HICON)::LoadImage(g_hInstance, MAKEINTRESOURCE(IDI_ICON),
+      IMAGE_ICON, size, size, 0);
+  if (!icon)
+    return NULL;
+
+  BITMAPINFO info;
+  memset(&info, 0, sizeof(info));
+  info.bmiHeader.biSize = sizeof(info.bmiHeader);
+  info.bmiHeader.biWidth = size;
+  info.bmiHeader.biHeight = -size;
+  info.bmiHeader.biPlanes = 1;
+  info.bmiHeader.biBitCount = 32;
+  info.bmiHeader.biCompression = BI_RGB;
+  void *pixels = NULL;
+  const HBITMAP bitmap = ::CreateDIBSection(NULL, &info, DIB_RGB_COLORS, &pixels, NULL, 0);
+  const HDC dc = ::CreateCompatibleDC(NULL);
+  BOOL drawn = FALSE;
+  if (bitmap && dc)
+  {
+    const HGDIOBJ previous = ::SelectObject(dc, bitmap);
+    if (previous && previous != HGDI_ERROR)
+    {
+      // Draw the alpha-blended icon over a transparent bitmap.
+      memset(pixels, 0, (size_t)size * (size_t)size * 4);
+      drawn = ::DrawIconEx(dc, 0, 0, icon, size, size, 0, NULL, DI_NORMAL);
+      ::SelectObject(dc, previous);
+    }
+  }
+  if (dc)
+    ::DeleteDC(dc);
+  ::DestroyIcon(icon);
+  if (drawn)
+    return bitmap;
+  if (bitmap)
+    ::DeleteObject(bitmap);
+  return NULL;
+}
+
+static bool InsertContextMenuItem(CMenu &menu, unsigned pos, CMenuItem &item, HBITMAP bitmap)
+{
+  if (!menu.InsertItem(pos, true, item))
+    return false;
+  if (bitmap)
+  {
+    MENUITEMINFOW info;
+    memset(&info, 0, sizeof(info));
+    info.cbSize = sizeof(info);
+    info.fMask = MIIM_BITMAP;
+    info.hbmpItem = bitmap;
+    ::SetMenuItemInfoW(menu, pos, TRUE, &info);
+  }
+  return true;
+}
+
 static void MyInsertMenu(CMenu &menu, unsigned pos, UINT id, const UString &s, HBITMAP bitmap)
 {
   if (!menu)
@@ -384,17 +445,10 @@ static void MyInsertMenu(CMenu &menu, unsigned pos, UINT id, const UString &s, H
   CMenuItem mi;
   mi.fType = MFT_STRING;
   mi.fMask = MIIM_TYPE | MIIM_ID;
-  if (bitmap)
-    mi.fMask |= MIIM_CHECKMARKS;
   mi.wID = id;
   mi.StringValue = s;
-  mi.hbmpUnchecked = bitmap;
-  // mi.hbmpChecked = bitmap; // do we need hbmpChecked ???
-  if (!menu.InsertItem(pos, true, mi))
+  if (!InsertContextMenuItem(menu, pos, mi, bitmap))
     throw 20190816;
-
-  // SetMenuItemBitmaps also works
-  // ::SetMenuItemBitmaps(menu, pos, MF_BYPOSITION, bitmap, NULL);
 }
 
 
@@ -417,14 +471,11 @@ static void MyAddSubMenu(
   CMenuItem mi;
   mi.fType = MFT_STRING;
   mi.fMask = MIIM_SUBMENU | MIIM_TYPE | MIIM_ID;
-  if (bitmap)
-    mi.fMask |= MIIM_CHECKMARKS;
   mi.wID = id;
   mi.hSubMenu = hSubMenu;
-  mi.hbmpUnchecked = bitmap;
   
   mi.StringValue = s;
-  if (!menu.InsertItem(pos, true, mi))
+  if (!InsertContextMenuItem(menu, pos, mi, bitmap))
     throw 20190817;
 }
 
@@ -636,16 +687,13 @@ Z7_COMWF_B CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
   ODS("### 44")
 
   _elimDup = ci.ElimDup;
+  _smartExtract = ci.SmartExtract;
   _writeZone = ci.WriteZone;
 
-  HBITMAP bitmap = NULL;
-  if (ci.MenuIcons.Val)
-  {
-    ODS("### 45")
-    if (!_bitmap)
-      _bitmap = ::LoadBitmap(g_hInstance, MAKEINTRESOURCE(IDB_MENU_LOGO));
-    bitmap = _bitmap;
-  }
+  if (ci.MenuIcons.Val && hMenu && !_bitmap)
+    _bitmap = CreateMenuLogo();
+  const HBITMAP rootBitmap = ci.MenuIcons.Val ? _bitmap : NULL;
+  const HBITMAP bitmap = ci.Cascaded.Val ? NULL : rootBitmap;
 
   UINT subIndex = indexMenu;
 
@@ -685,18 +733,14 @@ Z7_COMWF_B CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
   {
     const UString &fileName = _fileNames.Front();
 
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     if (NName::IsDevicePath(us2fs(fileName)))
     {
       // CFileInfo::Find can be slow for device files. So we don't call it.
       // we need only name here.
       fi0.Name = us2fs(fileName.Ptr(NName::kDevicePathPrefixSize));
       folderPrefix =
-        #ifdef UNDER_CE
-          "\\";
-        #else
           "C:\\";
-        #endif
     }
     else
     #endif
@@ -782,7 +826,7 @@ Z7_COMWF_B CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
             }
             _commandMap.Add(cmi);
             Set_UserString_in_LastCommand(mainString);
-            MyInsertMenu(subMenu, subIndex2++, currentCommandID++, mainString, bitmap);
+            MyInsertMenu(subMenu, subIndex2++, currentCommandID++, mainString, NULL);
           }
 
           subMenu.Detach();
@@ -849,9 +893,9 @@ Z7_COMWF_B CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
 
         if ((contextMenuFlags & NContextMenuFlags::kExtractHere) != 0)
         {
-          // Extract Here
+          // Smart Extract Here uses the archive-name folder only if needed.
           CCommandMapItem cmi;
-          cmi.Folder = baseFolder;
+          cmi.Folder = baseFolder + specFolder;
           AddCommand(kExtractHere, mainString, cmi);
           MyInsertMenu(popupMenu, subIndex++, currentCommandID++, mainString, bitmap);
         }
@@ -1019,7 +1063,7 @@ Z7_COMWF_B CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
     menuDestroyer.Disable();
     MyAddSubMenu(_commandMap, kMainVerb, menu, indexMenu++, currentCommandID++, (UString)MY_PRODUCT_NAME,
         popupMenu, // popupMenu.Detach(),
-        bitmap);
+        rootBitmap);
   }
   else
   {
@@ -1064,7 +1108,7 @@ Z7_COMWF_B CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
           // menuDestroyer_CRC.Disable();
         }
         MyAddSubMenu(_commandMap, kCheckSumCascadedVerb, menu, indexInParent++, currentCommandID++, (UString)"CRC SHA", subMenu,
-          /* insertHashMenuTo7zipMenu ? NULL : */ bitmap);
+          bitmap);
         _commandMap.Back().CtxCommandType = CtxCommandType_CrcRoot;
         if (!insertHashMenuTo7zipMenu)
           indexMenu = indexInParent;
@@ -1135,7 +1179,7 @@ Z7_COMWF_B CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
         cmi.UserString = s;
         cmi.CtxCommandType = CtxCommandType_CrcChild;
         _commandMap.Add(cmi);
-        MyInsertMenu(subMenu, subIndex_CRC++, currentCommandID++, s, bitmap);
+        MyInsertMenu(subMenu, subIndex_CRC++, currentCommandID++, s, NULL);
         ODS("### 380")
       }
       
@@ -1287,7 +1331,8 @@ HRESULT CZipContextMenu::InvokeCommandCommon(const CCommandMapItem &cmi)
         ExtractArchives(_fileNames, cmi.Folder,
             (cmdID == kExtract), // showDialog
             (cmdID == kExtractTo) && _elimDup.Val, // elimDup
-            _writeZone
+            _writeZone,
+            (cmdID == kExtractHere) || ((cmdID == kExtractTo) && _smartExtract.Val)
             );
         break;
       }
@@ -1420,11 +1465,7 @@ static void MyCopyString_isUnicode(void *dest, UINT size, const UString &src, bo
 
 
 Z7_COMWF_B CZipContextMenu::GetCommandString(
-      #ifdef Z7_OLD_WIN_SDK
-        UINT
-      #else
         UINT_PTR
-      #endif
     commandOffset,
     UINT uType,
     UINT * /* pwReserved */ , LPSTR pszName, UINT cchMax)
@@ -1602,6 +1643,9 @@ void CZipExplorerCommand::LoadItems(IShellItemArray *psiItemArray)
       
     CZipContextMenu *shellExt = new CZipContextMenu();
     shellExt->IsRoot = false;
+    shellExt->_elimDup = _elimDup;
+    shellExt->_smartExtract = _smartExtract;
+    shellExt->_writeZone = _writeZone;
 
     if (cmi.CtxCommandType == CtxCommandType_CrcRoot && !useCascadedCrc)
       shellExt->IsSeparator = true;

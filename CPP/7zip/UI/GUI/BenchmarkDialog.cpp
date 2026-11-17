@@ -557,19 +557,11 @@ bool CBenchmarkDialog::OnInit()
   RamSize_Defined = NSystem::GetRamSize(RamSize);
 
   
-  #ifdef UNDER_CE
-  const UInt32 kNormalizedCeSize = (16 << 20);
-  if (RamSize > kNormalizedCeSize && RamSize < (33 << 20))
-    RamSize = kNormalizedCeSize;
-  #endif
   RamSize_Limit = RamSize / 16 * 15;
 
   if (Sync.DictSize == (UInt64)(Int64)-1)
   {
     unsigned dicSizeLog = 25;
-    #ifdef UNDER_CE
-    dicSizeLog = 20;
-    #endif
     if (RamSize_Defined)
     for (; dicSizeLog > kBenchMinDicLogSize; dicSizeLog--)
       if (IsMemoryUsageOK(GetBenchMemoryUsage(

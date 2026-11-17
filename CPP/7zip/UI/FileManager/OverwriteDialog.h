@@ -57,9 +57,6 @@ namespace NOverwriteDialog
 
 class COverwriteDialog: public NWindows::NControl::CModalDialog
 {
-#ifdef UNDER_CE
-  bool _isBig;
-#endif
 
   void SetItemIcon(unsigned iconID, HICON hIcon);
   void SetFileInfoControl(const NOverwriteDialog::CFileInfo &fileInfo, unsigned textID, unsigned iconID, unsigned iconID_2);
@@ -78,10 +75,6 @@ public:
 
   INT_PTR Create(HWND parent = NULL)
   {
-#ifdef UNDER_CE
-    BIG_DIALOG_SIZE(280, 200);
-    _isBig = isBig;
-#endif
     return CModalDialog::Create(SIZED_DIALOG(IDD_OVERWRITE), parent);
   }
 };

@@ -30,20 +30,12 @@ void RegisterHasher(const CHasherInfo *hashInfo) throw()
 
 extern "C"
 BOOL WINAPI DllMain(
-  #ifdef UNDER_CE
-  HANDLE
-  #else
   HINSTANCE
-  #endif
   , DWORD /* dwReason */, LPVOID /*lpReserved*/);
 
 extern "C"
 BOOL WINAPI DllMain(
-  #ifdef UNDER_CE
-  HANDLE
-  #else
   HINSTANCE
-  #endif
   , DWORD /* dwReason */, LPVOID /*lpReserved*/)
 {
   return TRUE;

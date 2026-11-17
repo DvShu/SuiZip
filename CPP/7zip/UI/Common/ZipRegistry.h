@@ -31,6 +31,7 @@ namespace NExtract
     
     CBoolPair SplitDest;
     CBoolPair ElimDup;
+    CBoolPair SmartExtract;
     // CBoolPair AltStreams;
     CBoolPair NtSecurity;
     CBoolPair ShowPassword;
@@ -192,6 +193,7 @@ struct CContextMenuInfo
   CBoolPair Cascaded;
   CBoolPair MenuIcons;
   CBoolPair ElimDup;
+  CBoolPair SmartExtract;
   
   bool Flags_Def;
   UInt32 Flags;

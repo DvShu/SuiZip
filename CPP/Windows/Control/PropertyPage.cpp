@@ -3,26 +3,16 @@
 
 #include "StdAfx.h"
 
-#ifndef _UNICODE
-#include "../../Common/StringConvert.h"
-#endif
 
 #include "PropertyPage.h"
 
 extern HINSTANCE g_hInstance;
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 namespace NWindows {
 namespace NControl {
 
 static
-#ifdef Z7_OLD_WIN_SDK
-  BOOL
-#else
   INT_PTR
-#endif
 APIENTRY MyProperyPageProcedure(HWND dialogHWND, UINT message, WPARAM wParam, LPARAM lParam)
 {
   CWindow tempDialog(dialogHWND);
@@ -51,27 +41,6 @@ bool CPropertyPage::OnNotify(UINT /* controlID */, LPNMHDR lParam)
   return true;
 }
 
-/*
-PROPSHEETPAGE fields depend from
-#if   (_WIN32_WINNT >= 0x0600)
-#elif (_WIN32_WINNT >= 0x0501)
-#elif (_WIN32_IE >= 0x0400)
-PROPSHEETHEADER fields depend from
-#if (_WIN32_IE >= 0x0400)
-*/
-#if defined(PROPSHEETPAGEA_V1_SIZE) && !defined(Z7_OLD_WIN_SDK)
-#ifndef _UNICODE
-#define my_compatib_PROPSHEETPAGEA PROPSHEETPAGEA_V1
-#endif
-#define my_compatib_PROPSHEETPAGEW PROPSHEETPAGEW_V1
-#else
-// for old mingw:
-#ifndef _UNICODE
-#define my_compatib_PROPSHEETPAGEA PROPSHEETPAGEA
-#endif
-#define my_compatib_PROPSHEETPAGEW PROPSHEETPAGEW
-#endif
-
 INT_PTR MyPropertySheet(const CObjectVector<CPageInfo> &pagesInfo, HWND hwndParent, const UString &title)
 {
   const DWORD flags = PSH_PROPSHEETPAGE
@@ -80,41 +49,13 @@ INT_PTR MyPropertySheet(const CObjectVector<CPageInfo> &pagesInfo, HWND hwndPare
     #endif
     ;
   unsigned i;
-  #ifndef _UNICODE
-  AStringVector titles;
-  for (i = 0; i < pagesInfo.Size(); i++)
-    titles.Add(GetSystemString(pagesInfo[i].Title));
-  CRecordVector<my_compatib_PROPSHEETPAGEA> pagesA;
-  #endif
-  CRecordVector<my_compatib_PROPSHEETPAGEW> pagesW;
+  CRecordVector<PROPSHEETPAGEW> pagesW;
 
   for (i = 0; i < pagesInfo.Size(); i++)
   {
     const CPageInfo &pageInfo = pagesInfo[i];
-    #ifndef _UNICODE
     {
-      my_compatib_PROPSHEETPAGEA page;
-      memset(&page, 0, sizeof(page));
-      page.dwSize = sizeof(page);
-      page.dwFlags = PSP_HASHELP;
-      page.hInstance = g_hInstance;
-      page.pszTemplate = MAKEINTRESOURCEA(pageInfo.ID);
-      // page.pszIcon = NULL;
-      page.pfnDlgProc = NWindows::NControl::MyProperyPageProcedure;
-      
-      if (!titles[i].IsEmpty())
-      {
-        page.pszTitle = titles[i];
-        page.dwFlags |= PSP_USETITLE;
-      }
-      // else page.pszTitle = NULL;
-      page.lParam = (LPARAM)pageInfo.Page;
-      // page.pfnCallback = NULL;
-      pagesA.Add(page);
-    }
-    #endif
-    {
-      my_compatib_PROPSHEETPAGEW page;
+      PROPSHEETPAGEW page;
       memset(&page, 0, sizeof(page));
       page.dwSize = sizeof(page);
       page.dwFlags = PSP_HASHELP;
@@ -135,24 +76,6 @@ INT_PTR MyPropertySheet(const CObjectVector<CPageInfo> &pagesInfo, HWND hwndPare
     }
   }
 
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    PROPSHEETHEADERA sheet;
-    sheet.dwSize = sizeof(sheet);
-    sheet.dwFlags = flags;
-    sheet.hwndParent = hwndParent;
-    sheet.hInstance = g_hInstance;
-    AString titleA (GetSystemString(title));
-    sheet.pszCaption = titleA;
-    sheet.nPages = pagesA.Size();
-    sheet.nStartPage = 0;
-    sheet.ppsp = (LPCPROPSHEETPAGEA)(const void *)pagesA.ConstData();
-    sheet.pfnCallback = NULL;
-    return ::PropertySheetA(&sheet);
-  }
-  else
-  #endif
   {
     PROPSHEETHEADERW sheet;
     sheet.dwSize = sizeof(sheet);
@@ -162,7 +85,7 @@ INT_PTR MyPropertySheet(const CObjectVector<CPageInfo> &pagesInfo, HWND hwndPare
     sheet.pszCaption = title;
     sheet.nPages = pagesW.Size();
     sheet.nStartPage = 0;
-    sheet.ppsp = (LPCPROPSHEETPAGEW)(const void *)pagesW.ConstData();
+    sheet.ppsp = pagesW.ConstData();
     sheet.pfnCallback = NULL;
     return ::PropertySheetW(&sheet);
   }

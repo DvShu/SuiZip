@@ -24,9 +24,6 @@
 #include "FileFind.h"
 #include "FileName.h"
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 using namespace NWindows;
 using namespace NFile;
@@ -69,22 +66,11 @@ namespace NDir {
 
 #ifdef _WIN32
 
-#ifndef UNDER_CE
 
 bool GetWindowsDir(FString &path)
 {
   const unsigned kBufSize = MAX_PATH + 16;
   UINT len;
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    TCHAR s[kBufSize + 1];
-    s[0] = 0;
-    len = ::GetWindowsDirectory(s, kBufSize);
-    path = fas2fs(s);
-  }
-  else
-  #endif
   {
     WCHAR s[kBufSize + 1];
     s[0] = 0;
@@ -105,16 +91,6 @@ bool GetSystemDir(FString &path)
 {
   const unsigned kBufSize = MAX_PATH + 16;
   UINT len;
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    TCHAR s[kBufSize + 1];
-    s[0] = 0;
-    len = ::GetSystemDirectory(s, kBufSize);
-    path = fas2fs(s);
-  }
-  else
-  #endif
   {
     WCHAR s[kBufSize + 1];
     s[0] = 0;
@@ -123,18 +99,10 @@ bool GetSystemDir(FString &path)
   }
   return (len != 0 && len < kBufSize);
 }
-#endif // UNDER_CE
 
 
 static bool SetFileTime_Base(CFSTR path, const CFiTime *cTime, const CFiTime *aTime, const CFiTime *mTime, DWORD dwFlagsAndAttributes)
 {
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    ::SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return false;
-  }
-  #endif
   
   HANDLE hDir = INVALID_HANDLE_VALUE;
   IF_USE_MAIN_PATH
@@ -176,14 +144,6 @@ bool SetFileAttrib(CFSTR path, DWORD attrib)
     if (attrib == 0), it sets (FILE_ATTRIBUTE_NORMAL) attribute
     (FILE_ATTRIBUTE_DIRECTORY and some another attributes are ignored for files).
   */
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    if (::SetFileAttributes(fs2fas(path), attrib))
-      return true;
-  }
-  else
-  #endif
   {
     IF_USE_MAIN_PATH
       if (::SetFileAttributesW(fs2us(path), attrib))
@@ -213,14 +173,6 @@ bool SetFileAttrib_PosixHighDetect(CFSTR path, DWORD attrib)
 
 bool RemoveDir(CFSTR path)
 {
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    if (::RemoveDirectory(fs2fas(path)))
-      return true;
-  }
-  else
-  #endif
   {
     IF_USE_MAIN_PATH
       if (::RemoveDirectoryW(fs2us(path)))
@@ -242,14 +194,6 @@ bool RemoveDir(CFSTR path)
 
 bool MyMoveFile(CFSTR oldFile, CFSTR newFile)
 {
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    if (::MoveFile(fs2fas(oldFile), fs2fas(newFile)))
-      return true;
-  }
-  else
-  #endif
   {
     IF_USE_MAIN_PATH_2(oldFile, newFile)
     {
@@ -268,7 +212,6 @@ bool MyMoveFile(CFSTR oldFile, CFSTR newFile)
   return false;
 }
 
-#if defined(Z7_WIN32_WINNT_MIN) && Z7_WIN32_WINNT_MIN >= 0x0500
 static DWORD WINAPI CopyProgressRoutine_to_ICopyFileProgress(
   LARGE_INTEGER TotalFileSize,          // file size
   LARGE_INTEGER TotalBytesTransferred,  // bytes transferred
@@ -285,15 +228,10 @@ static DWORD WINAPI CopyProgressRoutine_to_ICopyFileProgress(
       (UInt64)TotalFileSize.QuadPart,
       (UInt64)TotalBytesTransferred.QuadPart);
 }
-#endif
 
 bool MyMoveFile_with_Progress(CFSTR oldFile, CFSTR newFile,
     ICopyFileProgress *progress)
 {
-#if defined(Z7_WIN32_WINNT_MIN) && Z7_WIN32_WINNT_MIN >= 0x0500
-#ifndef _UNICODE
-  if (g_IsNT)
-#endif
   if (progress)
   {
     IF_USE_MAIN_PATH_2(oldFile, newFile)
@@ -315,55 +253,15 @@ bool MyMoveFile_with_Progress(CFSTR oldFile, CFSTR newFile,
     #endif
     return false;
   }
-#else
-  UNUSED_VAR(progress)
-#endif
   return MyMoveFile(oldFile, newFile);
 }
 
-#ifndef UNDER_CE
-#if !defined(Z7_WIN32_WINNT_MIN) || Z7_WIN32_WINNT_MIN < 0x0500  // Win2000
-#define Z7_USE_DYN_CreateHardLink
-#endif
 
-#ifdef Z7_USE_DYN_CreateHardLink
-EXTERN_C_BEGIN
-typedef BOOL (WINAPI *Func_CreateHardLinkW)(
-    LPCWSTR lpFileName,
-    LPCWSTR lpExistingFileName,
-    LPSECURITY_ATTRIBUTES lpSecurityAttributes
-    );
-EXTERN_C_END
-#endif
-#endif // UNDER_CE
 
 bool MyCreateHardLink(CFSTR newFileName, CFSTR existFileName)
 {
-  #ifndef _UNICODE
-  if (!g_IsNT)
   {
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return false;
-    /*
-    if (::CreateHardLink(fs2fas(newFileName), fs2fas(existFileName), NULL))
-      return true;
-    */
-  }
-  else
-  #endif
-  {
-#ifdef Z7_USE_DYN_CreateHardLink
-    const
-    Func_CreateHardLinkW
-      my_CreateHardLinkW = Z7_GET_PROC_ADDRESS(
-    Func_CreateHardLinkW, ::GetModuleHandleW(L"kernel32.dll"),
-        "CreateHardLinkW");
-    if (!my_CreateHardLinkW)
-      return false;
-    #define MY_CreateHardLinkW  my_CreateHardLinkW
-#else
     #define MY_CreateHardLinkW  CreateHardLinkW
-#endif
     IF_USE_MAIN_PATH_2(newFileName, existFileName)
     {
       if (MY_CreateHardLinkW(fs2us(newFileName), fs2us(existFileName), NULL))
@@ -407,14 +305,6 @@ WinXP-64 CreateDir():
 
 bool CreateDir(CFSTR path)
 {
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    if (::CreateDirectory(fs2fas(path), NULL))
-      return true;
-  }
-  else
-  #endif
   {
     IF_USE_MAIN_PATH
       if (::CreateDirectoryW(fs2us(path), NULL))
@@ -442,14 +332,6 @@ bool CreateDir(CFSTR path)
  
 static bool CreateDir2(CFSTR path)
 {
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    if (::CreateDirectory(fs2fas(path), NULL))
-      return true;
-  }
-  else
-  #endif
   {
     IF_USE_MAIN_PATH
       if (::CreateDirectoryW(fs2us(path), NULL))
@@ -494,14 +376,12 @@ bool CreateComplexDir(CFSTR _path)
       return true;
   }
 
-  #ifndef UNDER_CE
   
   if (IsDriveRootPath_SuperAllowed(_path))
     return false;
   
   const unsigned prefixSize = GetRootPrefixSize(_path);
   
-  #endif // UNDER_CE
 
   #else // _WIN32
 
@@ -538,7 +418,7 @@ bool CreateComplexDir(CFSTR _path)
     if (pos < 0 || pos == 0)
       return false;
     
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     if (pos == 1 && IS_PATH_SEPAR(path[0]))
       return false;
     if (prefixSize >= (unsigned)pos + 1)
@@ -581,14 +461,6 @@ bool DeleteFileAlways(CFSTR path)
     }
   }
 
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    if (::DeleteFile(fs2fas(path)))
-      return true;
-  }
-  else
-  #endif
   {
     /* DeleteFile("name::$DATA") deletes all alt streams (same as delete DeleteFile("name")).
        Maybe it's better to open "name::$DATA" and clear data for unnamed stream? */
@@ -697,15 +569,6 @@ bool RemoveDirAlways_if_Empty(const FString &path)
 
 #endif // _WIN32
 
-#ifdef UNDER_CE
-
-bool MyGetFullPathName(CFSTR path, FString &resFullPath)
-{
-  resFullPath = path;
-  return true;
-}
-
-#else
 
 bool MyGetFullPathName(CFSTR path, FString &resFullPath)
 {
@@ -720,13 +583,6 @@ bool MyGetFullPathName(CFSTR path, FString &resFullPath)
 
 bool SetCurrentDir(CFSTR path)
 {
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    return BOOLToBool(::SetCurrentDirectory(fs2fas(path)));
-  }
-  else
-  #endif
   {
     return BOOLToBool(::SetCurrentDirectoryW(fs2us(path)));
   }
@@ -756,20 +612,6 @@ bool GetCurrentDir(FString &path)
   const unsigned kBufSize = MAX_PATH + 16;
   path.Empty();
 
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    TCHAR s[kBufSize + 1];
-    s[0] = 0;
-    const DWORD len = ::GetCurrentDirectory(kBufSize, s);
-    if (len == 0 || len >= kBufSize)
-      return false;
-    s[kBufSize] = 0;  // optional guard
-    path = fas2fs(s);
-    return true;
-  }
-  else
-  #endif
   {
     DWORD len;
     {
@@ -804,7 +646,6 @@ bool GetCurrentDir(FString &path)
 }
 
 #endif // _WIN32
-#endif // UNDER_CE
 
 
 bool GetFullPathAndSplit(CFSTR path, FString &resDirPrefix, FString &resFileName)
@@ -839,16 +680,6 @@ bool MyGetTempPath(FString &path)
 
   const unsigned kBufSize = MAX_PATH + 16;
   DWORD len;
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    TCHAR s[kBufSize + 1];
-    s[0] = 0;
-    len = ::GetTempPath(kBufSize, s);
-    path = fas2fs(s);
-  }
-  else
-  #endif
   {
     WCHAR s[kBufSize + 1];
     s[0] = 0;

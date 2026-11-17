@@ -8,11 +8,9 @@
 // #include "../../../Common/StringConvert.h"
 #include "../../../Common/StringToInt.h"
 
-#ifndef UNDER_CE
 #include "../../../Windows/ErrorMsg.h"
 #include "../../../Windows/MemoryLock.h"
 #include "../../../Windows/System.h"
-#endif
 
 #include "../Explorer/MyMessages.h"
 
@@ -288,7 +286,6 @@ LONG CSettingsPage::OnApply()
     _wasChanged = false;
   }
 
-  #ifndef UNDER_CE
   if (_largePages_wasChanged)
   {
     if (IsLargePageSupported())
@@ -299,7 +296,6 @@ LONG CSettingsPage::OnApply()
     }
     _largePages_wasChanged = false;
   }
-  #endif
 
   if (_memx_wasChanged)
   {

@@ -15,51 +15,18 @@
 #include "FileIO.h"
 #include "FileName.h"
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 using namespace NWindows;
 using namespace NFile;
 using namespace NName;
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 
-#if !defined(Z7_WIN32_WINNT_MIN) || Z7_WIN32_WINNT_MIN < 0x0502  // Win2003
-#define Z7_USE_DYN_FindFirstStream
-#endif
 
-#ifdef Z7_USE_DYN_FindFirstStream
-
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-
-EXTERN_C_BEGIN
-
-typedef enum
-{
-  My_FindStreamInfoStandard,
-  My_FindStreamInfoMaxInfoLevel
-} MY_STREAM_INFO_LEVELS;
-
-typedef struct
-{
-  LARGE_INTEGER StreamSize;
-  WCHAR cStreamName[MAX_PATH + 36];
-} MY_WIN32_FIND_STREAM_DATA, *MY_PWIN32_FIND_STREAM_DATA;
-
-typedef HANDLE (WINAPI *Func_FindFirstStreamW)(LPCWSTR fileName, MY_STREAM_INFO_LEVELS infoLevel,
-    LPVOID findStreamData, DWORD flags);
-
-typedef BOOL (APIENTRY *Func_FindNextStreamW)(HANDLE findStream, LPVOID findStreamData);
-
-EXTERN_C_END
-
-#else
 
 #define MY_WIN32_FIND_STREAM_DATA  WIN32_FIND_STREAM_DATA
 #define My_FindStreamInfoStandard  FindStreamInfoStandard
 
-#endif
 #endif // defined(_WIN32) && !defined(UNDER_CE)
 
 
@@ -224,21 +191,11 @@ static void Convert_WIN32_FIND_DATA_to_FileInfo(const WIN32_FIND_DATAW &fd, CFil
 {
   WIN_FD_TO_MY_FI(fi, fd)
   fi.Name = us2fs(fd.cFileName);
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   // fi.ShortName = us2fs(fd.cAlternateFileName);
   #endif
 }
 
-#ifndef _UNICODE
-static void Convert_WIN32_FIND_DATA_to_FileInfo(const WIN32_FIND_DATA &fd, CFileInfo &fi)
-{
-  WIN_FD_TO_MY_FI(fi, fd)
-  fi.Name = fas2fs(fd.cFileName);
-  #if defined(_WIN32) && !defined(UNDER_CE)
-  // fi.ShortName = fas2fs(fd.cAlternateFileName);
-  #endif
-}
-#endif
   
 ////////////////////////////////
 // CFindFile
@@ -285,32 +242,21 @@ WinXP-64 FindFirstFile():
   w:\* - ERROR_PATH_NOT_FOUND, if there is no such drive w:
 */
 
-bool CFindFile::FindFirst(CFSTR path, CFileInfo &fi)
+bool CFindFile::FindFirst(CFSTR path, CFileInfo &fi, FINDEX_INFO_LEVELS infoLevel)
 {
   if (!Close())
     return false;
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    WIN32_FIND_DATAA fd;
-    _handle = ::FindFirstFileA(fs2fas(path), &fd);
-    if (_handle == INVALID_HANDLE_VALUE)
-      return false;
-    Convert_WIN32_FIND_DATA_to_FileInfo(fd, fi);
-  }
-  else
-  #endif
   {
     WIN32_FIND_DATAW fd;
 
     IF_USE_MAIN_PATH
-      _handle = ::FindFirstFileW(fs2us(path), &fd);
+      _handle = ::FindFirstFileExW(fs2us(path), infoLevel, &fd, FindExSearchNameMatch, NULL, 0);
     #ifdef Z7_LONG_PATH
     if (_handle == INVALID_HANDLE_VALUE && USE_SUPER_PATH)
     {
       UString superPath;
       if (GetSuperPath(path, superPath, USE_MAIN_PATH))
-        _handle = ::FindFirstFileW(superPath, &fd);
+        _handle = ::FindFirstFileExW(superPath, infoLevel, &fd, FindExSearchNameMatch, NULL, 0);
     }
     #endif
     if (_handle == INVALID_HANDLE_VALUE)
@@ -322,16 +268,6 @@ bool CFindFile::FindFirst(CFSTR path, CFileInfo &fi)
 
 bool CFindFile::FindNext(CFileInfo &fi)
 {
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    WIN32_FIND_DATAA fd;
-    if (!::FindNextFileA(_handle, &fd))
-      return false;
-    Convert_WIN32_FIND_DATA_to_FileInfo(fd, fi);
-  }
-  else
-  #endif
   {
     WIN32_FIND_DATAW fd;
     if (!::FindNextFileW(_handle, &fd))
@@ -341,33 +277,13 @@ bool CFindFile::FindNext(CFileInfo &fi)
   return true;
 }
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 
 ////////////////////////////////
 // AltStreams
 
-#ifdef Z7_USE_DYN_FindFirstStream
-static Func_FindFirstStreamW g_FindFirstStreamW;
-static Func_FindNextStreamW  g_FindNextStreamW;
-#define MY_FindFirstStreamW  g_FindFirstStreamW
-#define MY_FindNextStreamW   g_FindNextStreamW
-static struct CFindStreamLoader
-{
-  CFindStreamLoader()
-  {
-    const HMODULE hm = ::GetModuleHandleA("kernel32.dll");
-       g_FindFirstStreamW = Z7_GET_PROC_ADDRESS(
-    Func_FindFirstStreamW, hm,
-        "FindFirstStreamW");
-       g_FindNextStreamW = Z7_GET_PROC_ADDRESS(
-    Func_FindNextStreamW, hm,
-        "FindNextStreamW");
-  }
-} g_FindStreamLoader;
-#else
 #define MY_FindFirstStreamW  FindFirstStreamW
 #define MY_FindNextStreamW   FindNextStreamW
-#endif
 
 
 bool CStreamInfo::IsMainStream() const throw()
@@ -421,13 +337,6 @@ bool CFindStream::FindFirst(CFSTR path, CStreamInfo &si)
 {
   if (!Close())
     return false;
-#ifdef Z7_USE_DYN_FindFirstStream
-  if (!g_FindFirstStreamW)
-  {
-    ::SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return false;
-  }
-#endif
   {
     MY_WIN32_FIND_STREAM_DATA sd;
     SetLastError(0);
@@ -456,13 +365,6 @@ bool CFindStream::FindFirst(CFSTR path, CStreamInfo &si)
 
 bool CFindStream::FindNext(CStreamInfo &si)
 {
-#ifdef Z7_USE_DYN_FindFirstStream
-  if (!g_FindNextStreamW)
-  {
-    ::SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return false;
-  }
-#endif
   {
     MY_WIN32_FIND_STREAM_DATA sd;
     if (!MY_FindNextStreamW(_handle, &sd))
@@ -511,11 +413,6 @@ WinXP-64 GetFileAttributes():
 
 DWORD GetFileAttrib(CFSTR path)
 {
-  #ifndef _UNICODE
-  if (!g_IsNT)
-    return ::GetFileAttributes(fs2fas(path));
-  else
-  #endif
   {
     IF_USE_MAIN_PATH
     {
@@ -603,7 +500,7 @@ bool CFileInfo::Find(CFSTR path, bool followLink)
   }
   #endif
 
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
 
   const int colonPos = FindAltStreamColon(path);
   if (colonPos >= 0 && path[(unsigned)colonPos + 1] != 0)
@@ -668,7 +565,7 @@ bool CFileInfo::Find(CFSTR path, bool followLink)
 
   CFindFile finder;
 
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   {
     /*
     DWORD lastError = GetLastError();
@@ -883,7 +780,7 @@ bool CEnumerator::NextAny(CFileInfo &fi)
   if (_findFile.IsHandleAllocated())
     return _findFile.FindNext(fi);
   else
-    return _findFile.FindFirst(_wildcard, fi);
+    return _findFile.FindFirst(_wildcard, fi, FindExInfoBasic);
 }
 
 bool CEnumerator::Next(CFileInfo &fi)
@@ -955,11 +852,6 @@ bool CFindChangeNotification::Close() throw()
            
 HANDLE CFindChangeNotification::FindFirst(CFSTR path, bool watchSubtree, DWORD notifyFilter)
 {
-  #ifndef _UNICODE
-  if (!g_IsNT)
-    _handle = ::FindFirstChangeNotification(fs2fas(path), BoolToBOOL(watchSubtree), notifyFilter);
-  else
-  #endif
   {
     IF_USE_MAIN_PATH
     _handle = ::FindFirstChangeNotificationW(fs2us(path), BoolToBOOL(watchSubtree), notifyFilter);
@@ -975,37 +867,10 @@ HANDLE CFindChangeNotification::FindFirst(CFSTR path, bool watchSubtree, DWORD n
   return _handle;
 }
 
-#ifndef UNDER_CE
 
 bool MyGetLogicalDriveStrings(CObjectVector<FString> &driveStrings)
 {
   driveStrings.Clear();
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    driveStrings.Clear();
-    UINT32 size = GetLogicalDriveStrings(0, NULL);
-    if (size == 0)
-      return false;
-    CObjArray<char> buf(size);
-    UINT32 newSize = GetLogicalDriveStrings(size, buf);
-    if (newSize == 0 || newSize > size)
-      return false;
-    AString s;
-    UINT32 prev = 0;
-    for (UINT32 i = 0; i < newSize; i++)
-    {
-      if (buf[i] == 0)
-      {
-        s = buf + prev;
-        prev = i + 1;
-        driveStrings.Add(fas2fs(s));
-      }
-    }
-    return prev == newSize;
-  }
-  else
-  #endif
   {
     UINT32 size = GetLogicalDriveStringsW(0, NULL);
     if (size == 0)
@@ -1029,7 +894,6 @@ bool MyGetLogicalDriveStrings(CObjectVector<FString> &driveStrings)
   }
 }
 
-#endif // UNDER_CE
 
 
 

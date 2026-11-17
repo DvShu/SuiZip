@@ -2,9 +2,6 @@
 
 #include "StdAfx.h"
 
-#ifdef UNDER_CE
-#include <winuserm.h>
-#endif
 
 #include "../../../../C/7zVersion.h"
 #include "../../../../C/CpuArch.h"
@@ -37,9 +34,6 @@ using namespace NWindows;
 using namespace NFile;
 using namespace NDir;
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 #define PRF(x)
 #define PRF_W(x)
@@ -1425,41 +1419,6 @@ static bool CopyNamesToHGlobal(NMemory::CGlobal &hgDrop, const UStringVector &na
 {
   size_t totalLen = 1;
 
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    AStringVector namesA;
-    unsigned i;
-    for (i = 0; i < names.Size(); i++)
-      namesA.Add(GetSystemString(names[i]));
-    for (i = 0; i < namesA.Size(); i++)
-      totalLen += namesA[i].Len() + 1;
-    
-    if (!hgDrop.Alloc(GHND | GMEM_SHARE, totalLen * sizeof(CHAR) + sizeof(DROPFILES)))
-      return false;
-    
-    NMemory::CGlobalLock dropLock(hgDrop);
-    DROPFILES *dropFiles = (DROPFILES *)dropLock.GetPointer();
-    if (!dropFiles)
-      return false;
-    dropFiles->fNC = FALSE;
-    dropFiles->pt.x = 0;
-    dropFiles->pt.y = 0;
-    dropFiles->pFiles = sizeof(DROPFILES);
-    dropFiles->fWide = FALSE;
-    CHAR *p = (CHAR *) (void *) ((BYTE *)dropFiles + sizeof(DROPFILES));
-    for (i = 0; i < namesA.Size(); i++)
-    {
-      const AString &s = namesA[i];
-      const unsigned fullLen = s.Len() + 1;
-      MyStringCopy(p, (const char *)s);
-      p += fullLen;
-      totalLen -= fullLen;
-    }
-    *p = 0;
-  }
-  else
-  #endif
   {
     unsigned i;
     for (i = 0; i < names.Size(); i++)
@@ -1903,9 +1862,6 @@ void CDropTarget::RemoveSelection()
   }
 }
 
-#ifdef UNDER_CE
-#define ChildWindowFromPointEx(hwndParent, pt, uFlags) ChildWindowFromPoint(hwndParent, pt)
-#endif
 
 
 /*

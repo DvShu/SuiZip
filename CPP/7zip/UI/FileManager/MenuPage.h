@@ -7,17 +7,6 @@
 #include "../../../Windows/Control/ComboBox.h"
 #include "../../../Windows/Control/ListView.h"
 
-struct CShellDll
-{
-  FString Path;
-  bool wasChanged;
-  bool prevValue;
-  unsigned ctrl;
-  UInt32 wow;
-
-  CShellDll(): wasChanged (false), prevValue(false), ctrl(0), wow(0) {}
-};
-
 class CMenuPage: public NWindows::NControl::CPropertyPage
 {
   bool _initMode;
@@ -25,6 +14,7 @@ class CMenuPage: public NWindows::NControl::CPropertyPage
   bool _cascaded_Changed;
   bool _menuIcons_Changed;
   bool _elimDup_Changed;
+  bool _smartExtract_Changed;
   bool _writeZone_Changed;
   bool _flags_Changed;
 
@@ -33,13 +23,14 @@ class CMenuPage: public NWindows::NControl::CPropertyPage
     _cascaded_Changed = false;
     _menuIcons_Changed = false;
     _elimDup_Changed = false;
+    _smartExtract_Changed = false;
     _writeZone_Changed = false;
     _flags_Changed = false;
   }
   
-  #ifndef UNDER_CE
-  CShellDll _dlls[2];
-  #endif
+  FString _shellDllPath;
+  bool _shellChanged;
+  bool _shellRegistered;
   
   NWindows::NControl::CListView _listView;
   NWindows::NControl::CComboBox _zoneCombo;

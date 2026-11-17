@@ -48,7 +48,6 @@ void File_Construct(CSzFile *p)
   #endif
 }
 
-#if !defined(UNDER_CE) || !defined(USE_WINDOWS_FILE)
 
 static WRes File_Open(CSzFile *p, const char *name, int writeMode)
 {
@@ -65,11 +64,7 @@ static WRes File_Open(CSzFile *p, const char *name, int writeMode)
   
   p->file = fopen(name, writeMode ? "wb+" : "rb");
   return (p->file != 0) ? 0 :
-    #ifdef UNDER_CE
-    2; /* ENOENT */
-    #else
     errno;
-    #endif
   
   #else
 
@@ -95,7 +90,6 @@ WRes OutFile_Open(CSzFile *p, const char *name)
   #endif
 }
 
-#endif
 
 
 #ifdef USE_WINDOWS_FILE

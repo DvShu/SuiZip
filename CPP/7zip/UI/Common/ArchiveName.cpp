@@ -66,7 +66,7 @@ UString CreateArchiveName(
       {
         if (!dirPrefix.IsEmpty() && IsPathSepar(dirPrefix.Back()))
         {
-         #if defined(_WIN32) && !defined(UNDER_CE)
+         #if defined(_WIN32)
           if (NName::IsDriveRootPath_SuperAllowed(dirPrefix))
           {
             if (path != fs2us(dirPrefix))

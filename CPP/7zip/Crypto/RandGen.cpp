@@ -66,12 +66,10 @@ void CRandomGenerator::Init()
   unsigned numIterations = 1000;
 
   {
-  #ifndef UNDER_CE
   const unsigned kNumIterations_Small = 100;
   const unsigned kBufSize = 32;
   MY_ALIGN (16)
   Byte buf[kBufSize];
-  #endif
 
   #ifdef _WIN32
 
@@ -80,15 +78,7 @@ void CRandomGenerator::Init()
   w = ::GetCurrentThreadId();
   HASH_UPD(w)
 
-  #ifdef UNDER_CE
-  /*
-  if (CeGenRandom(kBufSize, buf))
-  {
-    numIterations = kNumIterations_Small;
-    Sha256_Update(&hash, buf, kBufSize);
-  }
-  */
-  #elif defined(USE_STATIC_RtlGenRandom)
+  #if defined(USE_STATIC_RtlGenRandom)
   if (RtlGenRandom(buf, kBufSize))
   {
     numIterations = kNumIterations_Small;

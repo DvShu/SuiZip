@@ -10,9 +10,6 @@
 #include "MemoryGlobal.h"
 #include "Shell.h"
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 // MSVC6 and old SDK don't support this function:
 // #define LWSTDAPI  EXTERN_C DECLSPEC_IMPORT HRESULT STDAPICALLTYPE
@@ -49,7 +46,6 @@ static void Print_Number(UInt32 number, const char *s)
 namespace NWindows {
 namespace NShell {
 
-#ifndef UNDER_CE
 
 // SHGetMalloc is unsupported in Windows Mobile?
 
@@ -543,50 +539,17 @@ void CDrop::QueryFileNames(UStringVector &fileNames)
 typedef int Z7_WIN_GPFIDL_FLAGS;
 
 extern "C" {
-#ifndef _UNICODE
-typedef BOOL (WINAPI * Func_SHGetPathFromIDListW)(LPCITEMIDLIST pidl, LPWSTR pszPath); // nt4
-#endif
 
-#if !defined(Z7_WIN32_WINNT_MIN) || Z7_WIN32_WINNT_MIN < 0x0600  // Vista
-#define Z7_USE_DYN_SHGetPathFromIDListEx
-#endif
 
-#ifdef Z7_USE_DYN_SHGetPathFromIDListEx
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-typedef BOOL (WINAPI * Func_SHGetPathFromIDListEx)(LPCITEMIDLIST pidl, PWSTR pszPath, DWORD cchPath, Z7_WIN_GPFIDL_FLAGS uOpts); // vista
-#endif
 }
 
-#ifndef _UNICODE
-
-bool GetPathFromIDList(LPCITEMIDLIST itemIDList, AString &path)
-{
-  path.Empty();
-  const unsigned len = MAX_PATH + 16;
-  const bool result = BOOLToBool(::SHGetPathFromIDList(itemIDList, path.GetBuf(len)));
-  path.ReleaseBuf_CalcLen(len);
-  return result;
-}
-
-#endif
 
 bool GetPathFromIDList(LPCITEMIDLIST itemIDList, UString &path)
 {
   path.Empty();
   unsigned len = MAX_PATH + 16;
 
-#ifdef _UNICODE
   bool result = BOOLToBool(::SHGetPathFromIDList(itemIDList, path.GetBuf(len)));
-#else
-  const
-  Func_SHGetPathFromIDListW
-       shGetPathFromIDListW = Z7_GET_PROC_ADDRESS(
-  Func_SHGetPathFromIDListW, ::GetModuleHandleW(L"shell32.dll"),
-      "SHGetPathFromIDListW");
-  if (!shGetPathFromIDListW)
-    return false;
-  bool result = BOOLToBool(shGetPathFromIDListW(itemIDList, path.GetBuf(len)));
-#endif
 
   if (!result)
   {
@@ -594,25 +557,13 @@ bool GetPathFromIDList(LPCITEMIDLIST itemIDList, UString &path)
     /* for long path we need SHGetPathFromIDListEx().
       win10: SHGetPathFromIDListEx() for long path returns path with
              with super path prefix "\\\\?\\". */
-#ifdef Z7_USE_DYN_SHGetPathFromIDListEx
-    const
-    Func_SHGetPathFromIDListEx
-    func_SHGetPathFromIDListEx = Z7_GET_PROC_ADDRESS(
-    Func_SHGetPathFromIDListEx, ::GetModuleHandleW(L"shell32.dll"),
-        "SHGetPathFromIDListEx");
-    if (func_SHGetPathFromIDListEx)
-#endif
     {
       ODS("==== GetPathFromIDList() (SHGetPathFromIDListEx)")
       do
       {
         len *= 4;
         result = BOOLToBool(
-#ifdef Z7_USE_DYN_SHGetPathFromIDListEx
-          func_SHGetPathFromIDListEx
-#else
           SHGetPathFromIDListEx
-#endif
           (itemIDList, path.GetBuf(len), len, 0));
         if (result)
           break;
@@ -625,39 +576,7 @@ bool GetPathFromIDList(LPCITEMIDLIST itemIDList, UString &path)
   return result;
 }
 
-#endif
 
-#ifdef UNDER_CE
-
-bool BrowseForFolder(LPBROWSEINFO, CSysString)
-{
-  return false;
-}
-
-bool BrowseForFolder(HWND, LPCTSTR, UINT, LPCTSTR, CSysString &)
-{
-  return false;
-}
-
-bool BrowseForFolder(HWND /* owner */, LPCTSTR /* title */,
-    LPCTSTR /* initialFolder */, CSysString & /* resultPath */)
-{
-  /*
-  // SHBrowseForFolder doesn't work before CE 6.0 ?
-  if (GetProcAddress(LoadLibrary(L"ceshell.dll", L"SHBrowseForFolder") == 0)
-    MessageBoxW(0, L"no", L"", 0);
-  else
-    MessageBoxW(0, L"yes", L"", 0);
-  */
-  /*
-  UString s = "all files";
-  s += " (*.*)";
-  return MyGetOpenFileName(owner, title, initialFolder, s, resultPath, true);
-  */
-  return false;
-}
-
-#else
 
 /* win10: SHBrowseForFolder() doesn't support long paths,
    even if long path suppport is enabled in registry and in manifest.
@@ -678,7 +597,6 @@ bool BrowseForFolder(LPBROWSEINFO browseInfo, CSysString &resultPath)
 
 static int CALLBACK BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM /* lp */, LPARAM data)
 {
-  #ifndef UNDER_CE
   switch (uMsg)
   {
     case BFFM_INITIALIZED:
@@ -700,7 +618,6 @@ static int CALLBACK BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM /* lp */, LP
     default:
       break;
   }
-  #endif
   return 0;
 }
 
@@ -729,111 +646,16 @@ static bool BrowseForFolder(HWND owner, LPCTSTR title, UINT ulFlags,
   return BrowseForFolder(&browseInfo, resultPath);
 }
 
-#ifdef Z7_OLD_WIN_SDK
-// ShlObj.h:
-#ifndef BIF_NEWDIALOGSTYLE
-#define BIF_NEWDIALOGSTYLE     0x0040
-#endif
-#endif
 
 bool BrowseForFolder(HWND owner, LPCTSTR title,
     LPCTSTR initialFolder, CSysString &resultPath)
 {
   return BrowseForFolder(owner, title,
-      #ifndef UNDER_CE
       BIF_NEWDIALOGSTYLE |
-      #endif
       BIF_RETURNONLYFSDIRS | BIF_STATUSTEXT, initialFolder, resultPath);
   // BIF_STATUSTEXT; BIF_USENEWUI   (Version 5.0)
 }
 
-#ifndef _UNICODE
 
-extern "C" {
-typedef LPITEMIDLIST (WINAPI * Func_SHBrowseForFolderW)(LPBROWSEINFOW lpbi);
-}
-
-static bool BrowseForFolder(LPBROWSEINFOW browseInfo, UString &resultPath)
-{
-  NWindows::NCOM::CComInitializer comInitializer;
-  const
-  Func_SHBrowseForFolderW
-     f_SHBrowseForFolderW = Z7_GET_PROC_ADDRESS(
-  Func_SHBrowseForFolderW, ::GetModuleHandleW(L"shell32.dll"),
-      "SHBrowseForFolderW");
-  if (!f_SHBrowseForFolderW)
-    return false;
-  LPITEMIDLIST itemIDList = f_SHBrowseForFolderW(browseInfo);
-  if (!itemIDList)
-    return false;
-  CItemIDList itemIDListHolder;
-  itemIDListHolder.Attach(itemIDList);
-  return GetPathFromIDList(itemIDList, resultPath);
-}
-
-static
-int CALLBACK BrowseCallbackProc2(HWND hwnd, UINT uMsg, LPARAM /* lp */, LPARAM data)
-{
-  switch (uMsg)
-  {
-    case BFFM_INITIALIZED:
-    {
-      SendMessageW(hwnd, BFFM_SETSELECTIONW, TRUE, data);
-      break;
-    }
-    /*
-    case BFFM_SELCHANGED:
-    {
-      wchar_t dir[MAX_PATH * 2];
-
-      if (shGetPathFromIDListW((LPITEMIDLIST)lp , dir))
-        SendMessageW(hwnd, BFFM_SETSTATUSTEXTW, 0, (LPARAM)dir);
-      else
-        SendMessageW(hwnd, BFFM_SETSTATUSTEXTW, 0, (LPARAM)L"");
-      break;
-    }
-    */
-    default:
-      break;
-  }
-  return 0;
-}
-
-
-static bool BrowseForFolder(HWND owner, LPCWSTR title, UINT ulFlags,
-    LPCWSTR initialFolder, UString &resultPath)
-{
-  UString displayName;
-  BROWSEINFOW browseInfo;
-  browseInfo.hwndOwner = owner;
-  browseInfo.pidlRoot = NULL;
-  browseInfo.pszDisplayName = displayName.GetBuf(MAX_PATH);
-  browseInfo.lpszTitle = title;
-  browseInfo.ulFlags = ulFlags;
-  browseInfo.lpfn = initialFolder ? BrowseCallbackProc2 : NULL;
-  browseInfo.lParam = (LPARAM)initialFolder;
-  return BrowseForFolder(&browseInfo, resultPath);
-}
-
-bool BrowseForFolder(HWND owner, LPCWSTR title, LPCWSTR initialFolder, UString &resultPath)
-{
-  if (g_IsNT)
-    return BrowseForFolder(owner, title,
-      BIF_NEWDIALOGSTYLE | BIF_RETURNONLYFSDIRS
-      //  | BIF_STATUSTEXT // This flag is not supported when BIF_NEWDIALOGSTYLE is specified.
-      , initialFolder, resultPath);
-  // BIF_STATUSTEXT; BIF_USENEWUI   (Version 5.0)
-  CSysString s;
-  bool res = BrowseForFolder(owner, GetSystemString(title),
-      BIF_NEWDIALOGSTYLE | BIF_RETURNONLYFSDIRS
-      // | BIF_STATUSTEXT  // This flag is not supported when BIF_NEWDIALOGSTYLE is specified.
-      , GetSystemString(initialFolder), s);
-  resultPath = GetUnicodeString(s);
-  return res;
-}
-
-#endif
-
-#endif
 
 }}

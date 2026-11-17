@@ -4,8 +4,6 @@
 
 MY_VERSION_INFO_DLL(MY_PRODUCT_NAME " Shell Extension", "7-zip")
 
-#ifndef UNDER_CE
 1 24 MOVEABLE PURE "7-zip.dll.manifest"
-#endif
 
 IDI_ICON ICON "../../../../assets/suizip.ico"

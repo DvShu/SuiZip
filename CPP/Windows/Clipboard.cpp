@@ -2,9 +2,6 @@
 
 #include "StdAfx.h"
 
-#ifdef UNDER_CE
-#include <winuserm.h>
-#endif
 
 #include "../Common/StringConvert.h"
 

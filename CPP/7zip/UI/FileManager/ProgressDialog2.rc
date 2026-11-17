@@ -9,26 +9,6 @@
 
 #include "ProgressDialog2a.rc"
 
-#ifdef UNDER_CE
-
-#include "../../GuiCommon.rc"
-
-
-#undef DIALOG_ID
-#undef m
-#undef k
-#undef z1s
-
-#define DIALOG_ID  IDD_PROGRESS_2
-#define m 4
-#define k 8
-#define z1s 12
-
-#define xc 280
-
-#include "ProgressDialog2a.rc"
-
-#endif
 
 STRINGTABLE DISCARDABLE
 {

@@ -2,9 +2,6 @@
  
 #include "StdAfx.h"
 
-#ifdef UNDER_CE
-#include <commdlg.h>
-#endif
 
 #include <windowsx.h>
 
@@ -49,9 +46,6 @@ using namespace NFile;
 using namespace NName;
 using namespace NFind;
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 extern bool g_LVN_ITEMACTIVATE_Support;
 
@@ -305,9 +299,7 @@ bool CBrowseDialog2::OnInit()
   _columnIndex_NumDirs = -1;
   // _pathEdit.Attach(GetItem(IDE_BROWSE_PATH));
 
-  #ifndef UNDER_CE
   _list.SetUnicodeFormat();
-  #endif
 
   #ifndef Z7_SFX
   {
@@ -399,14 +391,10 @@ bool CBrowseDialog2::OnInit()
   }
 
   _list.InsertItem(0, L"12345678901234567"
-      #ifndef UNDER_CE
       L"1234567890"
-      #endif
       );
   _list.SetSubItem(0, 1, L"2009-09-09"
-      #ifndef UNDER_CE
       L" 09:09:09"
-      #endif
       );
   _list.SetSubItem(0, 2, L"99999 MB+");
 
@@ -433,7 +421,7 @@ bool CBrowseDialog2::OnInit()
   _topDirPrefix.Empty();
   {
     unsigned rootSize = GetRootPrefixSize(TempFolderPath);
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     // We can go up from root folder to drives list
     if (IsDrivePath(TempFolderPath))
       rootSize = 0;
@@ -467,11 +455,9 @@ bool CBrowseDialog2::OnInit()
   }
 */
 
-  #ifndef UNDER_CE
   /* If we clear UISF_HIDEFOCUS, the focus rectangle in ListView will be visible,
      even if we use mouse for pressing the button to open this dialog. */
   PostMsg(Z7_WIN_WM_UPDATEUISTATE, MAKEWPARAM(Z7_WIN_UIS_CLEAR, Z7_WIN_UISF_HIDEFOCUS));
-  #endif
 
   /*
   */
@@ -578,11 +564,7 @@ bool CBrowseDialog2::OnNotify(UINT /* controlID */, LPNMHDR header)
       // NM_RCLICK is int      in MinGW
       if (header->code == (UINT)NM_RCLICK)
       {
-#ifdef UNDER_CE
-#define MY_NMLISTVIEW_NMITEMACTIVATE NMLISTVIEW
-#else
 #define MY_NMLISTVIEW_NMITEMACTIVATE NMITEMACTIVATE
-#endif
         MY_NMLISTVIEW_NMITEMACTIVATE *itemActivate = (MY_NMLISTVIEW_NMITEMACTIVATE *)header;
         if (itemActivate->hdr.hwndFrom == HWND(_list))
           return false;
@@ -1015,46 +997,6 @@ HRESULT StartApplication(const UString &dir, const UString &path, HWND window, C
   }
 #endif // _WIN32
 
-#ifndef _UNICODE
-  if (g_IsNT)
-  {
-    SHELLEXECUTEINFOW execInfo;
-    memset(&execInfo, 0, sizeof(execInfo));
-    // execInfo.hwnd = NULL;
-    // execInfo.lpVerb = NULL;
-    // execInfo.lpFile = NULL;
-    // execInfo.lpDirectory = NULL;
-    // execInfo.lpParameters = NULL;
-    // execInfo.hProcess = NULL;
-    execInfo.cbSize = sizeof(execInfo);
-    execInfo.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_DDEWAIT;
-    if (!dir.IsEmpty())
-      execInfo.lpDirectory = dir;
-    execInfo.nShow = SW_SHOWNORMAL;
-
-    if ((LPCITEMIDLIST)pidl)
-    {
-      execInfo.lpIDList = pidl;
-      execInfo.fMask |= SEE_MASK_IDLIST;
-    }
-    else
-      execInfo.lpFile = path2;
-
-typedef BOOL (WINAPI * Func_ShellExecuteExW)(LPSHELLEXECUTEINFOW lpExecInfo);
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-    const
-    Func_ShellExecuteExW
-       f_ShellExecuteExW = Z7_GET_PROC_ADDRESS(
-    Func_ShellExecuteExW, ::GetModuleHandleW(L"shell32.dll"),
-        "ShellExecuteExW");
-    if (!f_ShellExecuteExW)
-      return 0;
-    f_ShellExecuteExW(&execInfo);
-    result = (UINT32)(UINT_PTR)execInfo.hInstApp;
-    process.Attach(execInfo.hProcess);
-  }
-  else
-#endif
   {
     SHELLEXECUTEINFO execInfo;
     memset(&execInfo, 0, sizeof(execInfo));
@@ -1066,17 +1008,13 @@ Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
     // execInfo.hProcess = NULL;
     execInfo.cbSize = sizeof(execInfo);
     execInfo.fMask = SEE_MASK_NOCLOSEPROCESS
-      #ifndef UNDER_CE
       | SEE_MASK_FLAG_DDEWAIT
-      #endif
       ;
     execInfo.nShow = SW_SHOWNORMAL;
     const CSysString sysPath (GetSystemString(path2));
     const CSysString sysDir (GetSystemString(dir));
-    #ifndef UNDER_CE
     if (!sysDir.IsEmpty())
       execInfo.lpDirectory = sysDir;
-    #endif
 
     if ((LPCITEMIDLIST)pidl)
     {
@@ -1495,7 +1433,6 @@ HRESULT CBrowseDialog2::Reload(const UString &pathPrefix, const UStringVector &s
   CRecordVector<CBrowseItem> items;
   CWaitCursor2 waitCursor;
   
-  #ifndef UNDER_CE
   bool isDrive = false;
   if (pathPrefix.IsEmpty() || pathPrefix.IsEqualTo(kSuperPathPrefix))
   {
@@ -1519,7 +1456,6 @@ HRESULT CBrowseDialog2::Reload(const UString &pathPrefix, const UStringVector &s
     }
   }
   else
-  #endif
   {
     {
       CEnumerator enumerator;
@@ -1675,7 +1611,6 @@ HRESULT CBrowseDialog2::Reload(const UString &pathPrefix, const UStringVector &s
     item.pszText = name.Ptr_non_const();
 
     const UString fullPath = DirPrefix + name;
-    #ifndef UNDER_CE
     if (isDrive)
     {
       item.iImage = Shell_GetFileInfo_SysIconIndex_for_Path(
@@ -1683,7 +1618,6 @@ HRESULT CBrowseDialog2::Reload(const UString &pathPrefix, const UStringVector &s
           FILE_ATTRIBUTE_DIRECTORY);
     }
     else
-    #endif
       item.iImage = _extToIconMap.GetIconIndex(fi.Attrib, fullPath);
     if (item.iImage < 0)
         item.iImage = 0;
@@ -1693,11 +1627,7 @@ HRESULT CBrowseDialog2::Reload(const UString &pathPrefix, const UStringVector &s
       s[0] = 0;
       if (!FILETIME_IsZero(fi.MTime))
         ConvertUtcFileTimeToString(fi.MTime, s,
-            #ifndef UNDER_CE
               kTimestampPrintLevel_MIN
-            #else
-              kTimestampPrintLevel_DAY
-            #endif
               );
       _list.SetSubItem(index, subItem++, s);
     }

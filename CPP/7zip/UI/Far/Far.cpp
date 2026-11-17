@@ -9,7 +9,6 @@
 #include "../../../Common/StringConvert.h"
 
 #include "../../../Windows/FileDir.h"
-#include "../../../Windows/NtCheck.h"
 
 #include "../../Common/FileStreams.h"
 
@@ -42,30 +41,18 @@ const char *g_PluginName_for_Error = "7-Zip";
 
 }
 
-#if defined(_UNICODE) && !defined(_WIN64) && !defined(UNDER_CE)
-#define NT_CHECK_FAIL_ACTION return FALSE;
-#endif
 
 BOOL WINAPI DllMain(
-  #ifdef UNDER_CE
-    HANDLE
-  #else
     HINSTANCE
-  #endif
   hInstance, DWORD dwReason, LPVOID);
 BOOL WINAPI DllMain(
-  #ifdef UNDER_CE
-    HANDLE
-  #else
     HINSTANCE
-  #endif
   hInstance, DWORD dwReason, LPVOID)
 {
   if (dwReason == DLL_PROCESS_ATTACH)
   {
     // OutputDebugStringA("7-Zip FAR DLL_PROCESS_ATTACH");
     g_hInstance = (HINSTANCE)hInstance;
-    NT_CHECK
   }
   if (dwReason == DLL_PROCESS_DETACH)
   {
@@ -339,11 +326,7 @@ static HANDLE MyOpenFilePluginW(const wchar_t *name, bool isAbortCodeSupported)
 static HANDLE MyOpenFilePlugin(const char *name, bool isAbortCodeSupported)
 {
   UINT codePage =
-  #ifdef UNDER_CE
-    CP_OEMCP;
-  #else
     ::AreFileApisANSI() ? CP_ACP : CP_OEMCP;
-  #endif
   return MyOpenFilePluginW(GetUnicodeString(name, codePage), isAbortCodeSupported);
 }
 

@@ -26,9 +26,6 @@
 
 #include "CompressDialog.h"
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 #include "../FileManager/LangUtils.h"
 

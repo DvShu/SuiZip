@@ -185,7 +185,7 @@ public:
   }
 
 private:
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   bool _saclEnabled;
   #endif
   CRecordVector<CKeyKeyValPair> _map;

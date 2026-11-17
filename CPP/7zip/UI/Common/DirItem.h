@@ -232,7 +232,6 @@ struct CDirItem: public NWindows::NFile::NFind::CFileInfoBase
 {
   UString Name;
   
- #ifndef UNDER_CE
   CByteBuffer ReparseData;
 
  #ifdef _WIN32
@@ -243,7 +242,6 @@ struct CDirItem: public NWindows::NFile::NFind::CFileInfoBase
   bool AreReparseData() const { return ReparseData.Size() != 0; }
  #endif // _WIN32
 
- #endif // !UNDER_CE
   
   void Copy_From_FileInfoBase(const NWindows::NFile::NFind::CFileInfoBase &fi)
   {
@@ -280,7 +278,7 @@ struct CDirItem: public NWindows::NFile::NFind::CFileInfoBase
       int phyParent, int logParent, int secureIndex):
     CFileInfoBase(fi)
     , Name(fs2us(fi.Name))
-   #if defined(_WIN32) && !defined(UNDER_CE)
+   #if defined(_WIN32)
     // , ShortName(fs2us(fi.ShortName))
    #endif
     , PhyParent(phyParent)
@@ -324,12 +322,10 @@ public:
 
   CDirItemsStat Stat;
 
-  #if !defined(UNDER_CE)
   HRESULT SetLinkInfo(CDirItem &dirItem, const NWindows::NFile::NFind::CFileInfo &fi,
       const FString &phyPrefix);
-  #endif
 
- #if defined(_WIN32) && !defined(UNDER_CE)
+ #if defined(_WIN32)
 
   CUniqBlocks SecureBlocks;
   CByteBuffer TempSecureBuf;

@@ -6,9 +6,6 @@
 
 #ifdef _WIN32
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 extern HINSTANCE g_hInstance;
 
@@ -29,13 +26,6 @@ bool CLibrary::LoadEx(CFSTR path, DWORD flags) throw()
 {
   if (!Free())
     return false;
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    _module = ::LoadLibraryEx(fs2fas(path), NULL, flags);
-  }
-  else
-  #endif
   {
     _module = ::LoadLibraryExW(fs2us(path), NULL, flags);
   }
@@ -46,13 +36,6 @@ bool CLibrary::Load(CFSTR path) throw()
 {
   if (!Free())
     return false;
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    _module = ::LoadLibrary(fs2fas(path));
-  }
-  else
-  #endif
   {
     _module = ::LoadLibraryW(fs2us(path));
   }
@@ -63,20 +46,6 @@ bool MyGetModuleFileName(FString &path)
 {
   const HMODULE hModule = g_hInstance;
   path.Empty();
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-    TCHAR s[MAX_PATH + 2];
-    s[0] = 0;
-    const DWORD size = ::GetModuleFileName(hModule, s, MAX_PATH + 1);
-    if (size <= MAX_PATH && size != 0)
-    {
-      path = fas2fs(s);
-      return true;
-    }
-  }
-  else
-  #endif
   {
     WCHAR s[MAX_PATH + 2];
     s[0] = 0;

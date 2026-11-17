@@ -38,9 +38,6 @@
 using namespace NWindows;
 using namespace NControl;
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 static const UINT_PTR kTimerID = 1;
 static const UINT kTimerElapse = 1000;
@@ -126,7 +123,6 @@ static int GetAddressBarTop(int inset)
   return (g_App.ShowArchiveToolbar || g_App.ShowStandardToolbar) ? kPaneFrameWidth : inset;
 }
 
-#ifndef UNDER_CE
 static void StyleStatusBar(CStatusBar &statusBar)
 {
   const HMODULE theme = ::GetModuleHandle(TEXT("uxtheme.dll"));
@@ -166,14 +162,12 @@ static void DrawControlFrame(HWND panel, HWND control, HDC dc, int clippedTop = 
   ::InflateRect(&rect, kPaneFrameWidth, kPaneFrameWidth);
   ::FrameRect(dc, &rect, ::GetSysColorBrush(COLOR_3DSHADOW));
 }
-#endif
 
 LRESULT CPanel::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 {
   // g_NumMessages++;
   switch (message)
   {
-    #ifndef UNDER_CE
     case WM_PAINT:
     {
       PAINTSTRUCT paint;
@@ -184,7 +178,6 @@ LRESULT CPanel::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
       ::EndPaint(*this, &paint);
       return 0;
     }
-    #endif
     case kShiftSelectMessage:
       OnShiftSelectMessage();
       return 0;
@@ -200,11 +193,6 @@ LRESULT CPanel::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
       if (_processStatusBar)
         Refresh_StatusBar();
       return 0;
-    #ifdef UNDER_CE
-    case kRefresh_HeaderComboBox:
-      LoadFullPathAndShow();
-      return 0;
-    #endif
     case WM_TIMER:
       OnTimer();
       return 0;
@@ -223,6 +211,20 @@ LRESULT CPanel::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT CMyListView::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 {
+  if (message == WM_GETOBJECT)
+  {
+    LRESULT result;
+    if (GetAutomationObject(wParam, lParam, result))
+      return result;
+  }
+  if (message == WM_NCDESTROY)
+    CloseAutomation();
+  if (message == kFileListAutomationInvoke)
+  {
+    InvokeAutomationItem(wParam, lParam);
+    return 0;
+  }
+
   if (message == WM_CHAR)
   {
     UINT scanCode = (UINT)((lParam >> 16) & 0xFF);
@@ -288,23 +290,19 @@ LRESULT CMyListView::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
       }
     }
   }
-  #ifdef UNDER_CE
-  else if (message == WM_KEYUP)
-  {
-    if (wParam == VK_F2) // it's VK_TSOFT2
-    {
-      // Activate Menu
-      ::PostMessage(g_HWND, WM_SYSCOMMAND, SC_KEYMENU, 0);
-      return 0;
-    }
-  }
-  #endif
   else if (message == WM_SETFOCUS)
   {
     _panel->_lastFocusedIsList = true;
     _panel->_panelCallback->PanelWasFocused();
   }
-  return CListView2::OnMessage(message, wParam, lParam);
+  const LRESULT result = CListView2::OnMessage(message, wParam, lParam);
+  if (message == LVM_DELETEALLITEMS)
+    NotifyAutomationViewport(true, true);
+  else if (message == LVM_SORTITEMS || message == LVM_SORTITEMSEX)
+    NotifyAutomationViewport(true);
+  else if (message == WM_PAINT || message == WM_SIZE)
+    NotifyAutomationViewport();
+  return result;
 }
 
 /*
@@ -323,7 +321,6 @@ LRESULT CMyComboBox::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 }
 */
 
-#ifndef UNDER_CE
 
 static LRESULT APIENTRY ComboBoxEditSubclassProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -334,7 +331,6 @@ static LRESULT APIENTRY ComboBoxEditSubclassProc(HWND hwnd, UINT message, WPARAM
   return w->OnMessage(message, wParam, lParam);
 }
 
-#endif
 
 LRESULT CMyComboBoxEdit::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -401,46 +397,8 @@ LRESULT CMyComboBoxEdit::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
           return 0;
       }
   }
-  #ifndef _UNICODE
-  if (g_IsNT)
-    return CallWindowProcW(_origWindowProc, *this, message, wParam, lParam);
-  else
-  #endif
     return CallWindowProc(_origWindowProc, *this, message, wParam, lParam);
 }
-
-
-/*
-  REBARBANDINFO in vista (_WIN32_WINNT >= 0x0600) has additional fields
-  we want 2000/xp compatibility.
-  so we must use reduced structure, if we compile with (_WIN32_WINNT >= 0x0600)
-  Also there are additional fields, if (_WIN32_IE >= 0x0400).
-    but (_WIN32_IE >= 0x0400) is expected.
-  note:
-  in x64 (64-bit):
-  {
-    (108 == REBARBANDINFO_V6_SIZE)
-    (112 == sizeof(REBARBANDINFO) // for (_WIN32_WINNT <  0x0600)
-    (128 == sizeof(REBARBANDINFO) // for (_WIN32_WINNT >= 0x0600)
-    there is difference in sizes, because REBARBANDINFO size was
-    not aligned for 8-bytes in (_WIN32_WINNT < 0x0600).
-    We hope that WinVista+ support support both (108 and 112) sizes.
-    But does WinXP-x64 support (108 == REBARBANDINFO_V6_SIZE)?
-    {
-         96   LPARAM  lParam;
-        104   UINT    cxHeader;
-      #if (_WIN32_WINNT >= 0x0600)
-        108   RECT    rcChevronLocation;
-        124   UINT    uChevronState;
-      #endif
-    }
-*/
-
-#if defined(_WIN32_WINNT) && (_WIN32_WINNT >= 0x0600) && defined(REBARBANDINFOA_V6_SIZE)
-  #define my_compatib_REBARBANDINFO_size  REBARBANDINFO_V6_SIZE
-#else
-  #define my_compatib_REBARBANDINFO_size  sizeof(REBARBANDINFO)
-#endif
 
 
 bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
@@ -509,9 +467,6 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
     // {VIEW_NEWFOLDER, kCreateFolderID, TBSTATE_ENABLED, BTNS_BUTTON, 0L, 0},
   };
 
-#ifdef Z7_USE_DYN_ComCtl32Version
-  if (g_ComCtl32Version >= MAKELONG(71, 4))
-#endif
   {
     icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
     icex.dwICC  = ICC_COOL_CLASSES | ICC_BAR_CLASSES;
@@ -542,9 +497,7 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
       | CCS_NODIVIDER
       | CCS_NORESIZE
       | TBSTYLE_FLAT
-      #ifndef UNDER_CE
       | TBSTYLE_TRANSPARENT
-      #endif
       ;
   }
 
@@ -555,19 +508,13 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
       (LPCTBBUTTON)&tbb, Z7_ARRAY_SIZE(tbb),
       0, 0, 0, 0, sizeof (TBBUTTON)));
 
-  #ifndef UNDER_CE
   // Load ComboBoxEx class
   icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
   icex.dwICC = ICC_USEREX_CLASSES;
   InitCommonControlsEx(&icex);
-  #endif
   
   _headerComboBox.CreateEx(0,
-      #ifdef UNDER_CE
-      WC_COMBOBOXW
-      #else
       WC_COMBOBOXEXW
-      #endif
       , NULL,
     WS_VISIBLE | WS_CHILD | CBS_DROPDOWN | CBS_AUTOHSCROLL,
       0, 0, 100, 620,
@@ -575,7 +522,6 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
       (HMENU)(UINT_PTR)(_comboBoxID),
       g_hInstance, NULL);
 
-#ifndef UNDER_CE
   _headerComboBox.SetUnicodeFormat(true);
   _headerComboBox.SetImageList(Shell_Get_SysImageList_smallIcons(true));
   _headerComboBox.SetExtendedStyle(CBES_EX_PATHWORDBREAKPROC, CBES_EX_PATHWORDBREAKPROC);
@@ -590,15 +536,8 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
   // _comboBoxEdit.SendMessage(CCM_SETUNICODEFORMAT, (WPARAM)(BOOL)TRUE, 0);
   _comboBoxEdit.SetUserDataLongPtr(LONG_PTR(&_comboBoxEdit));
   _comboBoxEdit._panel = this;
-   #ifndef _UNICODE
-   if (g_IsNT)
-     _comboBoxEdit._origWindowProc =
-      (WNDPROC)_comboBoxEdit.SetLongPtrW(GWLP_WNDPROC, LONG_PTR(ComboBoxEditSubclassProc));
-   else
-   #endif
      _comboBoxEdit._origWindowProc =
       (WNDPROC)_comboBoxEdit.SetLongPtr(GWLP_WNDPROC, LONG_PTR(ComboBoxEditSubclassProc));
-#endif
 
   if (_headerReBar)
   {
@@ -616,9 +555,7 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
     
     REBARBANDINFO rbBand;
     memset(&rbBand, 0, sizeof(rbBand));
-    // rbBand.cbSize = sizeof(rbBand);  // for debug
-    // rbBand.cbSize = REBARBANDINFO_V3_SIZE; // for debug
-    rbBand.cbSize = my_compatib_REBARBANDINFO_size;
+    rbBand.cbSize = sizeof(rbBand);
     rbBand.fMask = RBBIM_STYLE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE;
     rbBand.fStyle = RBBS_NOGRIPPER;
     rbBand.cxMinChild = (UINT)size.cx;
@@ -639,13 +576,10 @@ bool CPanel::OnCreate(CREATESTRUCT * /* createStruct */)
   }
 
   _statusBar.Create(WS_CHILD | WS_VISIBLE | CCS_NOPARENTALIGN
-      #ifndef UNDER_CE
       | SBARS_TOOLTIPS
-      #endif
       , L"", (*this), _statusBarID);
-  #ifndef UNDER_CE
   StyleStatusBar(_statusBar);
-  #endif
+  UpdateDpi(NFileManagerStyle::GetDpi(*this), g_App.GetControlFont());
 
   RECT rect;
   GetClientRect(&rect);
@@ -663,6 +597,55 @@ void CPanel::OnDestroy()
 {
   SaveListViewInfo();
   CWindow2::OnDestroy();
+}
+
+void CPanel::UpdateDpi(int dpi, HFONT font)
+{
+  if (dpi != _columnDpi)
+  {
+    FOR_VECTOR (i, _visibleColumns)
+    {
+      LVCOLUMNW column = {};
+      column.mask = LVCF_WIDTH;
+      if (_listView.GetColumn(i, &column))
+      {
+        column.cx = ::MulDiv(column.cx, dpi, _columnDpi);
+        ListView_SetColumn((HWND)_listView, i, &column);
+      }
+    }
+    _columnDpi = dpi;
+  }
+
+  if (font)
+  {
+    _listView.SendMsg(WM_SETFONT, (WPARAM)font, FALSE);
+    const HWND header = ListView_GetHeader((HWND)_listView);
+    if (header)
+      ::SendMessageW(header, WM_SETFONT, (WPARAM)font, FALSE);
+    _headerComboBox.SendMsg(WM_SETFONT, (WPARAM)font, FALSE);
+    _statusBar.SendMsg(WM_SETFONT, (WPARAM)font, FALSE);
+    _statusBar.SendMsg(WM_SIZE, 0, 0);
+  }
+
+  if (_headerReBar)
+  {
+    SIZE size = {};
+    if (_headerToolBar.GetMaxSize(&size))
+    {
+      REBARBANDINFO band = {};
+      band.cbSize = sizeof(band);
+      band.fMask = RBBIM_CHILDSIZE;
+      band.cxMinChild = (UINT)size.cx;
+      band.cyMinChild = (UINT)size.cy;
+      _headerReBar.SetBandInfo(0, &band);
+
+      band.cxMinChild = (UINT)::MulDiv(30, dpi, USER_DEFAULT_SCREEN_DPI);
+      band.cyMinChild = (UINT)::MulDiv(24, dpi, USER_DEFAULT_SCREEN_DPI);
+      _headerReBar.SetBandInfo(1, &band);
+    }
+  }
+  if (_thereAre_ListView_Items)
+    Refresh_StatusBar();
 }
 
 void CPanel::ChangeWindowSize(int xSize, int ySize)
@@ -691,21 +674,17 @@ void CPanel::ChangeWindowSize(int xSize, int ySize)
     _headerToolBar.Move(inset, addressTop, width, 0);
     _headerComboBox.Move(inset + pathOffset, addressTop + 2, MyMax(width - pathOffset, 0), 0);
   }
-  #ifndef UNDER_CE
   else
   {
     // Keep the combo's left edge as a divider inside the rebar's frame.
     const int edgeY = ::GetSystemMetrics(SM_CYBORDER);
     ClipControlEdges(_headerComboBox, edgeY, ::GetSystemMetrics(SM_CXBORDER), edgeY);
   }
-  #endif
 
   _listView.Move(inset, listTop, width, listHeight);
   _statusBar.Move(inset, listTop + listHeight + gap, width, statusHeight);
-  #ifndef UNDER_CE
   // Replace the native top line with the pane's single-pixel frame.
   ClipControlEdges(_statusBar, kPaneFrameWidth, 0, 0);
-  #endif
   LayoutStatusBar(width);
   InvalidateRect(NULL);
 }

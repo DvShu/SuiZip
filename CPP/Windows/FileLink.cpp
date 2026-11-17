@@ -20,18 +20,7 @@
 #include "FileIO.h"
 #include "FileName.h"
 
-#ifdef Z7_OLD_WIN_SDK
-#ifndef ERROR_INVALID_REPARSE_DATA
-#define ERROR_INVALID_REPARSE_DATA       4392L
-#endif
-#ifndef ERROR_REPARSE_TAG_INVALID
-#define ERROR_REPARSE_TAG_INVALID        4393L
-#endif
-#endif
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 namespace NWindows {
 namespace NFile {
@@ -132,7 +121,7 @@ static const bool IsVolumeName(const wchar_t *s)
 }
 */
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 
 #define Set16(p, v) SetUi16(p, v)
 #define Set32(p, v) SetUi32(p, v)
@@ -515,7 +504,7 @@ bool MyGetDiskFreeSpace(CFSTR rootPath, UInt64 &clusterSize, UInt64 &totalSize, 
 }
 #endif // Z7_DEVICE_FILE
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 
 namespace NIO {
 

@@ -55,9 +55,7 @@ NUserAnswerMode::EEnum ScanUserYesNoAllQuit(CStdOutStream *outStream)
 }
 
 #ifdef _WIN32
-#ifndef UNDER_CE
 #define MY_DISABLE_ECHO
-#endif
 #endif
 
 static bool GetPassword(CStdOutStream *outStream, UString &psw)

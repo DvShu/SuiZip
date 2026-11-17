@@ -11,11 +11,7 @@
 
 #include "../../PropID.h"
 
-#ifdef UNDER_CE
-#include "FSFolder.h"
-#else
 #include "FSDrives.h"
-#endif
 #include "LangUtils.h"
 #include "ListViewDialog.h"
 #include "Panel.h"
@@ -36,6 +32,8 @@ void CPanel::ReleaseFolder()
 
   _folderCompare.Release();
   _folderGetItemName.Release();
+  _folderGetSystemIconIndex.Release();
+  _listIconIndices.Clear();
   _folderRawProps.Release();
   _folderAltStreams.Release();
   _folderOperations.Release();
@@ -139,7 +137,7 @@ HRESULT CPanel::BindToPath(const UString &fullPath, const UString &arcFormat, CO
     if (prefixSize == 0 || sysPath[prefixSize] == 0)
       sysPath.Empty();
     
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     if (!sysPath.IsEmpty() && sysPath.Back() == ':' &&
       (sysPath.Len() != 2 || !NName::IsDrivePath2(sysPath)))
     {
@@ -410,7 +408,6 @@ void CPanel::LoadFullPathAndShow()
 
   _headerComboBox.SetText(_currentFolderPrefix);
 
-  #ifndef UNDER_CE
 
   COMBOBOXEXITEM item;
   item.mask = 0;
@@ -513,12 +510,10 @@ void CPanel::LoadFullPathAndShow()
   item.iItem = -1;
   _headerComboBox.SetItem(&item);
   
-  #endif
 
   RefreshTitle();
 }
 
-#ifndef UNDER_CE
 LRESULT CPanel::OnNotifyComboBoxEnter(const UString &s)
 {
   if (BindToPathAndRefresh(GetUnicodeString(s)) == S_OK)
@@ -557,49 +552,10 @@ bool CPanel::OnNotifyComboBoxEndEdit(PNMCBEENDEDITW info, LRESULT &result)
   }
   return false;
 }
-#endif
 
-#ifndef _UNICODE
-bool CPanel::OnNotifyComboBoxEndEdit(PNMCBEENDEDIT info, LRESULT &result)
-{
-  if (info->iWhy == CBENF_ESCAPE)
-  {
-    _headerComboBox.SetText(_currentFolderPrefix);
-    PostMsg(kSetFocusToListView);
-    result = FALSE;
-    return true;
-  }
-  /*
-  if (info->iWhy == CBENF_DROPDOWN)
-  {
-    result = FALSE;
-    return true;
-  }
-  */
-
-  if (info->iWhy == CBENF_RETURN)
-  {
-    UString s;
-    _headerComboBox.GetText(s);
-    // GetUnicodeString(info->szText)
-    result = OnNotifyComboBoxEnter(s);
-    return true;
-  }
-  return false;
-}
-#endif
 
 void CPanel::AddComboBoxItem(const UString &name, int iconIndex, unsigned indent, bool addToList)
 {
-  #ifdef UNDER_CE
-
-  UString s;
-  iconIndex = iconIndex;
-  for (unsigned i = 0; i < indent; i++)
-    s += "  ";
-  _headerComboBox.AddString(s + name);
-  
-  #else
   
   COMBOBOXEXITEMW item;
   item.mask = CBEIF_TEXT | CBEIF_INDENT;
@@ -613,7 +569,6 @@ void CPanel::AddComboBoxItem(const UString &name, int iconIndex, unsigned indent
   item.pszText = name.Ptr_non_const();
   _headerComboBox.InsertItem(&item);
   
-  #endif
 
   if (addToList)
   {
@@ -762,7 +717,6 @@ bool CPanel::OnComboBoxCommand(UINT code, LPARAM /* param */, LRESULT &result)
             false); // addToList
       }
 
-#ifndef UNDER_CE
 
       {
         int iconIndex;
@@ -795,7 +749,6 @@ bool CPanel::OnComboBoxCommand(UINT code, LPARAM /* param */, LRESULT &result)
         AddComboBoxItem(name, iconIndex, 0, true);
       }
 
-#endif
     
       return false;
     }
@@ -811,9 +764,6 @@ bool CPanel::OnComboBoxCommand(UINT code, LPARAM /* param */, LRESULT &result)
         if (BindToPathAndRefresh(path) == S_OK)
         {
           PostMsg(kSetFocusToListView);
-          #ifdef UNDER_CE
-          PostMsg(kRefresh_HeaderComboBox);
-          #endif
           return true;
         }
       }
@@ -838,7 +788,6 @@ bool CPanel::OnComboBoxCommand(UINT code, LPARAM /* param */, LRESULT &result)
 
 bool CPanel::OnNotifyComboBox(LPNMHDR NON_CE_VAR(header), LRESULT & NON_CE_VAR(result))
 {
-  #ifndef UNDER_CE
   switch (header->code)
   {
     case CBEN_BEGINEDIT:
@@ -847,18 +796,11 @@ bool CPanel::OnNotifyComboBox(LPNMHDR NON_CE_VAR(header), LRESULT & NON_CE_VAR(r
       _panelCallback->PanelWasFocused();
       break;
     }
-    #ifndef _UNICODE
-    case CBEN_ENDEDIT:
-    {
-      return OnNotifyComboBoxEndEdit((PNMCBEENDEDIT)header, result);
-    }
-    #endif
     case CBEN_ENDEDITW:
     {
       return OnNotifyComboBoxEndEdit((PNMCBEENDEDITW)header, result);
     }
   }
-  #endif
   return false;
 }
 
@@ -1043,15 +985,9 @@ void CPanel::OpenRootFolder()
 void CPanel::OpenDrivesFolder()
 {
   CloseOpenFolders();
-  #ifdef UNDER_CE
-  NFsFolder::CFSFolder *folderSpec = new NFsFolder::CFSFolder;
-  SetNewFolder(folderSpec);
-  folderSpec->InitToRoot();
-  #else
   CFSDrives *folderSpec = new CFSDrives;
   SetNewFolder(folderSpec);
   folderSpec->Init();
-  #endif
   RefreshListCtrl();
 }
 
@@ -1104,7 +1040,7 @@ void CPanel::OpenAltStreams()
     return;
   }
   
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   UString path;
   if (realIndex >= 0)
     path = GetItemFullPath((UInt32)realIndex);

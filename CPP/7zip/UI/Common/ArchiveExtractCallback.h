@@ -93,9 +93,7 @@ struct CExtractNtOptions
 
 
 #ifndef Z7_SFX
-#ifndef UNDER_CE
 #define SUPPORT_LINKS
-#endif
 #endif
 
 
@@ -385,7 +383,7 @@ private:
 
   bool _multiArchives;
   bool _keepAndReplaceEmptyDirPrefixes; // replace them to "_";
-#if defined(_WIN32) && !defined(UNDER_CE) && !defined(Z7_SFX)
+#if defined(_WIN32) && !defined(Z7_SFX)
   bool _saclEnabled;
 #endif
 #ifndef _WIN32
@@ -425,7 +423,7 @@ private:
   UInt32 _index;
 
 // #ifdef SUPPORT_ALT_STREAMS
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
   DWORD _altStream_NeedRestore_AttribVal;
   FString _altStream_NeedRestore_Attrib_for_parentFsPath;
 #endif
@@ -478,7 +476,7 @@ public:
   HRESULT SendMessageError2(HRESULT errorCode, const char *message, const FString &path1, const FString &path2) const;
   HRESULT SendMessageError2_with_LastError(const char *message, const FString &path1, const FString &path2) const;
 
-#if defined(_WIN32) && !defined(UNDER_CE) && !defined(Z7_SFX)
+#if defined(_WIN32) && !defined(Z7_SFX)
   NExtract::NZoneIdMode::EEnum ZoneMode;
   CByteBuffer ZoneBuf;
 #endif
@@ -504,7 +502,7 @@ public:
     _multiArchives = multiArchives;
     _pathMode = pathMode;
     _overwriteMode = overwriteMode;
-#if defined(_WIN32) && !defined(UNDER_CE) && !defined(Z7_SFX)
+#if defined(_WIN32) && !defined(Z7_SFX)
      ZoneMode = zoneMode;
 #else
      UNUSED_VAR(zoneMode)

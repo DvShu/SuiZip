@@ -92,30 +92,20 @@ $targets = @(
     @{ Path = 'CPP\7zip\UI\Explorer'; File = '7-zip.dll' },
     @{ Path = 'CPP\7zip\Bundles\SFXWin'; File = '7z.sfx' },
     @{ Path = 'CPP\7zip\Bundles\SFXCon'; File = '7zCon.sfx' },
-    @{ Path = 'C\Util\7zipInstall'; File = '7zipInstall.exe'; InstallerTools = $true; Stub = $true },
-    @{ Path = 'C\Util\7zipUninstall'; File = '7zipUninstall.exe'; InstallerTools = $true; Rename = 'Uninstall.exe' },
-    @{ Path = 'CPP\7zip\UI\Explorer'; File = '7-zip.dll'; X86 = $true; Rename = '7-zip32.dll' }
+    @{ Path = 'C\Util\7zipInstall'; File = '7zipInstall.exe'; Stub = $true },
+    @{ Path = 'C\Util\7zipUninstall'; File = '7zipUninstall.exe'; Rename = 'Uninstall.exe' }
 )
 
 try {
     New-Item -ItemType Directory -Path $payload -Force | Out-Null
     $buildDirectories = @()
-    $commands = @('@echo off', 'setlocal DisableDelayedExpansion')
+    $commands = @('@echo off', 'setlocal DisableDelayedExpansion', ('call "{0}" x64 || exit /b 1' -f $vcvars))
     foreach ($item in $targets) {
-        $platform = 'x64'
-        if ($item.X86) { $platform = 'x86' }
-        if ($commands.Count -eq 2 -or $item.X86) {
-            $vcArchitecture = 'x64'
-            if ($item.X86) { $vcArchitecture = 'x64_x86' }
-            $commands += ('call "{0}" {1} || exit /b 1' -f $vcvars, $vcArchitecture)
-        }
         $projectPath = Join-Path $repoRoot $item.Path
-        $outputDirectory = Join-Path $projectPath "$buildOutput`_$platform"
+        $outputDirectory = Join-Path $projectPath $buildOutput
         $buildDirectories += $outputDirectory
-        $extraFlags = ''
-        if ($item.InstallerTools) { $extraFlags = ' Z7_64BIT_INSTALLER=1' }
         $commands += 'cd /d "{0}" || exit /b 1' -f $projectPath
-        $commands += "nmake /nologo /s PLATFORM=$platform O=$buildOutput`_$platform$extraFlags || exit /b 1"
+        $commands += "nmake /nologo /s PLATFORM=x64 O=$buildOutput || exit /b 1"
         $item.Output = Join-Path $outputDirectory $item.File
     }
     $commands += 'exit /b 0'

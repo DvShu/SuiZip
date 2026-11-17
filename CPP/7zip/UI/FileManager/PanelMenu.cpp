@@ -991,7 +991,7 @@ bool CPanel::InvokePluginCommand(unsigned id)
   return InvokePluginCommand(id, _sevenZipContextMenu, _systemContextMenu);
 }
 
-#if defined(_MSC_VER) && !defined(UNDER_CE)
+#if defined(_MSC_VER)
 #define use_CMINVOKECOMMANDINFOEX
 /* CMINVOKECOMMANDINFOEX depends from (_WIN32_IE >= 0x0400) */
 #endif
@@ -1140,9 +1140,7 @@ bool CPanel::OnContextMenu(HANDLE windowHandle, int xPos, int yPos)
   CreateFileMenu(menu, sevenZipContextMenu, systemContextMenu, false); // programMenu
 
   const unsigned id = (unsigned)menu.Track(TPM_LEFTALIGN
-      #ifndef UNDER_CE
       | TPM_RIGHTBUTTON
-      #endif
       | TPM_RETURNCMD | TPM_NONOTIFY,
     xPos, yPos, _listView);
 

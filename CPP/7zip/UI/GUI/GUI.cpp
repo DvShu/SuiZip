@@ -20,7 +20,6 @@
 #include "../../../Common/StringConvert.h"
 
 #include "../../../Windows/FileDir.h"
-#include "../../../Windows/NtCheck.h"
 
 #include "../Common/ArchiveCommandLine.h"
 #include "../Common/ExitCode.h"
@@ -50,45 +49,8 @@ extern
 bool g_DisableUserQuestions;
 bool g_DisableUserQuestions;
 
-#ifndef UNDER_CE
 
-#if !defined(Z7_WIN32_WINNT_MIN) || Z7_WIN32_WINNT_MIN < 0x0500  // win2000
-#define Z7_USE_DYN_ComCtl32Version
-#endif
 
-#ifdef Z7_USE_DYN_ComCtl32Version
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-
-extern
-DWORD g_ComCtl32Version;
-DWORD g_ComCtl32Version;
-
-static DWORD GetDllVersion(LPCTSTR dllName)
-{
-  DWORD dwVersion = 0;
-  const HMODULE hmodule = LoadLibrary(dllName);
-  if (hmodule)
-  {
-    const
-     DLLGETVERSIONPROC f_DllGetVersion = Z7_GET_PROC_ADDRESS(
-     DLLGETVERSIONPROC, hmodule,
-    "DllGetVersion");
-    if (f_DllGetVersion)
-    {
-      DLLVERSIONINFO dvi;
-      ZeroMemory(&dvi, sizeof(dvi));
-      dvi.cbSize = sizeof(dvi);
-      const HRESULT hr = (*f_DllGetVersion)(&dvi);
-      if (SUCCEEDED(hr))
-        dwVersion = (DWORD)MAKELONG(dvi.dwMinorVersion, dvi.dwMajorVersion);
-    }
-    FreeLibrary(hmodule);
-  }
-  return dwVersion;
-}
-
-#endif
-#endif
 
 extern
 bool g_LVN_ITEMACTIVATE_Support;
@@ -139,10 +101,8 @@ static int Main2()
   UStringVector commandStrings;
   NCommandLineParser::SplitCommandLine(GetCommandLineW(), commandStrings);
 
-  #ifndef UNDER_CE
   if (commandStrings.Size() > 0)
     commandStrings.Delete(0);
-  #endif
   if (commandStrings.Size() == 0)
   {
     MessageBoxW(NULL, L"Specify command", L"7-Zip", 0);
@@ -409,35 +369,21 @@ static int Main2()
   return 0;
 }
 
-#if defined(_UNICODE) && !defined(_WIN64) && !defined(UNDER_CE)
-#define NT_CHECK_FAIL_ACTION ErrorMessage("Unsupported Windows version"); return NExitCode::kFatalError;
-#endif
 
 int APIENTRY WinMain(HINSTANCE  hInstance, HINSTANCE /* hPrevInstance */,
-  #ifdef UNDER_CE
-  LPWSTR
-  #else
   LPSTR
-  #endif
   /* lpCmdLine */, int /* nCmdShow */)
 {
   g_hInstance = hInstance;
   
   #ifdef _WIN32
-  NT_CHECK
   #endif
 
   InitCommonControls();
 
-#ifdef Z7_USE_DYN_ComCtl32Version
-  g_ComCtl32Version = ::GetDllVersion(TEXT("comctl32.dll"));
-  g_LVN_ITEMACTIVATE_Support = (g_ComCtl32Version >= MAKELONG(71, 4));
-#endif
 
   // OleInitialize is required for ProgressBar in TaskBar.
-  #ifndef UNDER_CE
   OleInitialize(NULL);
-  #endif
 
   #ifdef Z7_LANG
   LoadLangOneTime();

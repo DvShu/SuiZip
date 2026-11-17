@@ -10,20 +10,12 @@
 
 extern "C"
 BOOL WINAPI DllMain(
-  #ifdef UNDER_CE
-  HANDLE
-  #else
   HINSTANCE
-  #endif
   /* hInstance */, DWORD /* dwReason */, LPVOID /*lpReserved*/);
 
 extern "C"
 BOOL WINAPI DllMain(
-  #ifdef UNDER_CE
-  HANDLE
-  #else
   HINSTANCE
-  #endif
   /* hInstance */, DWORD /* dwReason */, LPVOID /*lpReserved*/)
 {
   return TRUE;

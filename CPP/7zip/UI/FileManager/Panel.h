@@ -44,11 +44,7 @@
 #include "ProgressDialog2.h"
 #include "SysIconUtils.h"
 
-#ifdef UNDER_CE
-#define NON_CE_VAR(_v_)
-#else
 #define NON_CE_VAR(_v_) _v_
-#endif
 
 const int kParentFolderID = 100;
 
@@ -61,10 +57,6 @@ const UInt32 kParentIndex_UInt32 = (UInt32)(Int32)kParentIndex;
 #define ROOT_FS_FOLDER L"C:\\"
 #endif
 
-#if !defined(Z7_WIN32_WINNT_MIN) || Z7_WIN32_WINNT_MIN < 0x0500  // < win2000
-#define Z7_USE_DYN_ComCtl32Version
-extern DWORD g_ComCtl32Version;
-#endif
 
 Z7_PURE_INTERFACES_BEGIN
 
@@ -205,24 +197,27 @@ enum MyMessages
   kSetFocusToListView,
   kOpenItemChanged,
   kRefresh_StatusBar
-  #ifdef UNDER_CE
-  , kRefresh_HeaderComboBox
-  #endif
 };
 
 UString GetFolderPath(IFolderFolder *folder);
 
 class CPanel;
+class CFileListAutomation;
+
+const UINT kFileListAutomationInvoke = WM_APP + 1;
 
 class CMyListView Z7_final: public NWindows::NControl::CListView2
 {
-  // ~CMyListView() ZIP7_eq_delete;
-  // CMyListView() ZIP7_eq_delete;
+  CFileListAutomation *_automation = NULL;
+
+  bool GetAutomationObject(WPARAM wParam, LPARAM lParam, LRESULT &result);
+  void CloseAutomation();
+  void InvokeAutomationItem(WPARAM generation, LPARAM itemId);
 public:
-  // CMyListView() {}
-  // ~CMyListView() Z7_DESTRUCTOR_override {} // change it
   CPanel *_panel;
   LRESULT OnMessage(UINT message, WPARAM wParam, LPARAM lParam) Z7_override;
+  void NotifyAutomationViewport(bool force = false, bool reset = false);
+  void NotifyAutomationItem(const NMLISTVIEW &item);
 };
 
 /*
@@ -259,11 +254,7 @@ struct CSelectedState
     {}
 };
 
-#ifdef UNDER_CE
-#define MY_NMLISTVIEW_NMITEMACTIVATE NMLISTVIEW
-#else
 #define MY_NMLISTVIEW_NMITEMACTIVATE NMITEMACTIVATE
-#endif
 
 struct CCopyToOptions
 {
@@ -373,6 +364,7 @@ private:
   int _startGroupSelect;
   int _prevFocusedItem;
   int _statusLeadingWidths[2];
+  int _columnDpi;
 
   CAppState *_appState;
 
@@ -387,15 +379,10 @@ private:
 
   bool OnComboBoxCommand(UINT code, LPARAM param, LRESULT &result);
   
-  #ifndef UNDER_CE
   
   LRESULT OnNotifyComboBoxEnter(const UString &s);
   bool OnNotifyComboBoxEndEdit(PNMCBEENDEDITW info, LRESULT &result);
-  #ifndef _UNICODE
-  bool OnNotifyComboBoxEndEdit(PNMCBEENDEDIT info, LRESULT &result);
-  #endif
 
-  #endif
 
   bool OnNotifyReBar(LPNMHDR lParam, LRESULT &result);
   bool OnNotifyComboBox(LPNMHDR lParam, LRESULT &result);
@@ -434,11 +421,7 @@ public:
   NWindows::NControl::CReBar _headerReBar;
   NWindows::NControl::CToolBar _headerToolBar;
   NWindows::NControl::
-    #ifdef UNDER_CE
-    CComboBox
-    #else
     CComboBoxEx
-    #endif
     _headerComboBox;
   UStringVector ComboBoxPaths;
   // CMyComboBox _headerComboBox;
@@ -458,6 +441,8 @@ public:
   CBoolVector _isDirVector;
   CMyComPtr<IFolderCompare> _folderCompare;
   CMyComPtr<IFolderGetItemName> _folderGetItemName;
+  CMyComPtr<IFolderGetSystemIconIndex> _folderGetSystemIconIndex;
+  CRecordVector<int> _listIconIndices;
   CMyComPtr<IArchiveGetRawProps> _folderRawProps;
   CMyComPtr<IFolderAltStreams> _folderAltStreams;
   CMyComPtr<IFolderOperations> _folderOperations;
@@ -467,7 +452,6 @@ public:
   // int m_SubFolderIndex;      // realIndex of item in m_Panel list (if drop cursor to that item)
   UString m_DropHighlighted_SubFolderName;   // name of folder in m_Panel list (if drop cursor to that folder)
 
-  // CMyComPtr<IFolderGetSystemIconIndex> _folderGetSystemIconIndex;
   UStringVector _fastFolders;
 
   UString _typeIDString;
@@ -500,6 +484,7 @@ public:
       _enableItemChangeNotify = b;
     }
   }
+  int GetListItemIconIndex(unsigned index);
 
   // void SysIconsWereChanged() { _extToIconMap.Clear(); }
 
@@ -596,6 +581,7 @@ public:
 
 
   void SaveListViewInfo();
+  void UpdateDpi(int dpi, HFONT font);
 
   CPanel() :
       _thereAre_ListView_Items(false),
@@ -624,6 +610,7 @@ public:
       _xSize(300),
       _startGroupSelect(0),
       _statusLeadingWidths(),
+      _columnDpi(USER_DEFAULT_SCREEN_DPI),
       m_DropHighlighted_SelectionIndex(-1)
   {}
 
@@ -741,7 +728,7 @@ public:
   {
     if (IsFsOrPureDrivesFolder())
       return true;
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     FString prefix = us2fs(GetFsPath());
     return (prefix.Len() == NWindows::NFile::NName::GetNetworkServerPrefixSize(prefix));
     #else

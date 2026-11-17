@@ -14,9 +14,6 @@ struct CCommonDialogInfo
      if (FilterIndex >= 0), then FilterIndex is index of filter */
   int FilterIndex;    // [in / out]
   bool SaveMode;
- #ifdef UNDER_CE
-  bool OpenFolderMode;
- #endif
   HWND hwndOwner;
   // LPCWSTR lpstrInitialDir;
   LPCWSTR lpstrTitle;
@@ -26,9 +23,6 @@ struct CCommonDialogInfo
   {
     FilterIndex = -1;
     SaveMode = false;
-   #ifdef UNDER_CE
-    OpenFolderMode = false;
-   #endif
     hwndOwner = NULL;
     // lpstrInitialDir = NULL;
     lpstrTitle = NULL;

@@ -5,7 +5,6 @@
 
 #include "../Common/MyWindows.h"
 
-#ifndef Z7_OLD_WIN_SDK
 
 #if defined(__MINGW32__) || defined(__MINGW64__)
 #include <psapi.h>
@@ -13,29 +12,6 @@
 #include <Psapi.h>
 #endif
 
-#else // Z7_OLD_WIN_SDK
-
-typedef struct _MODULEINFO {
-    LPVOID lpBaseOfDll;
-    DWORD SizeOfImage;
-    LPVOID EntryPoint;
-} MODULEINFO, *LPMODULEINFO;
-
-typedef struct _PROCESS_MEMORY_COUNTERS {
-    DWORD cb;
-    DWORD PageFaultCount;
-    SIZE_T PeakWorkingSetSize;
-    SIZE_T WorkingSetSize;
-    SIZE_T QuotaPeakPagedPoolUsage;
-    SIZE_T QuotaPagedPoolUsage;
-    SIZE_T QuotaPeakNonPagedPoolUsage;
-    SIZE_T QuotaNonPagedPoolUsage;
-    SIZE_T PagefileUsage;
-    SIZE_T PeakPagefileUsage;
-} PROCESS_MEMORY_COUNTERS;
-typedef PROCESS_MEMORY_COUNTERS *PPROCESS_MEMORY_COUNTERS;
-
-#endif // Z7_OLD_WIN_SDK
 
 #include "../Common/MyString.h"
 
@@ -53,13 +29,10 @@ public:
     return (_handle != NULL);
   }
 
-  #ifndef UNDER_CE
 
   bool GetExitCodeProcess(LPDWORD lpExitCode) { return BOOLToBool(::GetExitCodeProcess(_handle, lpExitCode)); }
   bool Terminate(UINT exitCode) { return BOOLToBool(::TerminateProcess(_handle, exitCode)); }
-  #if (WINVER >= 0x0500)
   DWORD GetGuiResources (DWORD uiFlags) { return ::GetGuiResources(_handle, uiFlags); }
-  #endif
   bool SetPriorityClass(DWORD dwPriorityClass) { return BOOLToBool(::SetPriorityClass(_handle, dwPriorityClass)); }
   DWORD GetPriorityClass() { return ::GetPriorityClass(_handle); }
   // bool GetIoCounters(PIO_COUNTERS lpIoCounters ) { return BOOLToBool(::GetProcessIoCounters(_handle, lpIoCounters )); }
@@ -76,9 +49,6 @@ public:
 
   bool WriteMemory(LPVOID baseAddress, LPCVOID buffer, SIZE_T size, SIZE_T* numberOfBytesWritten)
     { return BOOLToBool(::WriteProcessMemory(_handle, baseAddress,
-      #ifdef Z7_OLD_WIN_SDK
-        (LPVOID)
-      #endif
       buffer,
       size, numberOfBytesWritten)); }
 
@@ -124,7 +94,6 @@ public:
     { return BOOLToBool(::GetProcessMemoryInfo(_handle, memCounters, sizeof(PROCESS_MEMORY_COUNTERS))); }
   */
 
-  #endif
 
   WRes Create(LPCWSTR imageName, const UString &params, LPCWSTR curDir);
 

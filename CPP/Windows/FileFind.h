@@ -158,7 +158,7 @@ public:
 struct CFileInfo: public CFileInfoBase
 {
   FString Name;
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   // FString ShortName;
   #endif
 
@@ -191,11 +191,12 @@ public:
 class CFindFile: public CFindFileBase
 {
 public:
-  bool FindFirst(CFSTR wildcard, CFileInfo &fileInfo);
+  bool FindFirst(CFSTR wildcard, CFileInfo &fileInfo,
+      FINDEX_INFO_LEVELS infoLevel = FindExInfoStandard);
   bool FindNext(CFileInfo &fileInfo);
 };
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 
 struct CStreamInfo
 {
@@ -262,9 +263,7 @@ public:
   bool FindNext() { return BOOLToBool(::FindNextChangeNotification(_handle)); }
 };
 
-#ifndef UNDER_CE
 bool MyGetLogicalDriveStrings(CObjectVector<FString> &driveStrings);
-#endif
 
 typedef CFileInfo CDirEntry;
 

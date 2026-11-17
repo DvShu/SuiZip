@@ -10,8 +10,6 @@
 #include "../../Common/MyInitGuid.h"
 
 #include "../../Common/ComTry.h"
-
-#include "../../Windows/NtCheck.h"
 #include "../../Windows/PropVariant.h"
 
 #include "../ICoder.h"
@@ -24,7 +22,6 @@
 static
 HINSTANCE g_hInstance;
 
-#define NT_CHECK_FAIL_ACTION return FALSE;
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID /*lpReserved*/);
 extern "C" BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID /*lpReserved*/)
@@ -32,7 +29,6 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID /*lpR
   if (dwReason == DLL_PROCESS_ATTACH)
   {
     g_hInstance = hInstance;
-    NT_CHECK
   }
   return TRUE;
 }

@@ -88,15 +88,7 @@ bool CAboutDialog::OnButtonClicked(unsigned buttonID, HWND buttonHWND)
       return CModalDialog::OnButtonClicked(buttonID, buttonHWND);
   }
 
-  #ifdef UNDER_CE
-  SHELLEXECUTEINFO s;
-  memset(&s, 0, sizeof(s));
-  s.cbSize = sizeof(s);
-  s.lpFile = url;
-  ::ShellExecuteEx(&s);
-  #else
   ::ShellExecute(NULL, NULL, url, NULL, NULL, SW_SHOWNORMAL);
-  #endif
 
   return true;
 }

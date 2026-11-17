@@ -81,9 +81,7 @@ inline AString GetOemString(const UString &u)
 
 #endif
 
-#ifndef UNDER_CE
 AString SystemStringToOemString(const CSysString &src);
-#endif
 
 
 #ifdef _WIN32

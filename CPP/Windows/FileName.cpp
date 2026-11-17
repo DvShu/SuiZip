@@ -11,9 +11,6 @@
 #include "FileDir.h"
 #include "FileName.h"
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 namespace NWindows {
 namespace NFile {
@@ -102,7 +99,7 @@ bool IsAltPathPrefix(CFSTR s) throw()
   if (s[len - 1] != ':')
     return false;
 
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
   if (IsDevicePath(s))
     return false;
   if (IsSuperPath(s))
@@ -147,27 +144,12 @@ bool IsSuperPath(const wchar_t *s) throw();
 bool IsSuperPath(const wchar_t *s) throw() { return IS_SUPER_PREFIX(s); }
 // bool IsSuperUncPath(const wchar_t *s) throw() { return (IS_SUPER_PREFIX(s) && IS_UNC_WITH_SLASH(s + kSuperPathPrefixSize)); }
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 
 #define IS_SUPER_OR_DEVICE_PATH(s) (IS_SEPAR((s)[0]) && IS_SEPAR((s)[1]) && ((s)[2] == '?' || (s)[2] == '.') && IS_SEPAR((s)[3]))
 bool IsSuperOrDevicePath(const wchar_t *s) throw() { return IS_SUPER_OR_DEVICE_PATH(s); }
 bool IsDevicePath(CFSTR s) throw()
 {
-  #ifdef UNDER_CE
-
-  s = s;
-  return false;
-  /*
-  // actually we don't know the way to open device file in WinCE.
-  unsigned len = MyStringLen(s);
-  if (len < 5 || len > 5 || !IsString1PrefixedByString2(s, "DSK"))
-    return false;
-  if (s[4] != ':')
-    return false;
-  // for reading use SG_REQ sg; if (DeviceIoControl(dsk, IOCTL_DISK_READ));
-  */
-  
-  #else
   
   if (!IS_DEVICE_PATH(s))
     return false;
@@ -181,7 +163,6 @@ bool IsDevicePath(CFSTR s) throw()
       return false;
   return true;
   
-  #endif
 }
 
 bool IsSuperUncPath(CFSTR s) throw() { return (IS_SUPER_PREFIX(s) && IS_UNC_WITH_SLASH(s + kSuperPathPrefixSize)); }
@@ -425,7 +406,6 @@ unsigned GetRootPrefixSize(const wchar_t *s) throw() { return IS_SEPAR(s[0]) ? 1
 #endif // _WIN32
 
 
-#ifndef UNDER_CE
 
 
 #ifdef USE_UNICODE_FSTRING
@@ -516,7 +496,6 @@ static bool ResolveDotsFolders(UString &s)
   }
 }
 
-#endif // UNDER_CE
 
 #define LONG_PATH_DOTS_FOLDERS_PARSING
 
@@ -528,7 +507,6 @@ To solve that problem we check such path:
    - super path doesn't contain "." or ".." - we use kSuperPathType_UseOnlyMain
 */
 #ifdef LONG_PATH_DOTS_FOLDERS_PARSING
-#ifndef UNDER_CE
 static bool AreThereDotsFolders(CFSTR s)
 {
   for (unsigned i = 0;; i++)
@@ -545,7 +523,6 @@ static bool AreThereDotsFolders(CFSTR s)
     }
   }
 }
-#endif
 #endif // LONG_PATH_DOTS_FOLDERS_PARSING
 
 #ifdef Z7_LONG_PATH
@@ -821,17 +798,6 @@ bool GetFullPath(CFSTR dirPrefix, CFSTR s, FString &res)
 {
   res = s;
 
-  #ifdef UNDER_CE
-
-  if (!IS_SEPAR(s[0]))
-  {
-    if (!dirPrefix)
-      return false;
-    res = dirPrefix;
-    res += s;
-  }
-
-  #else
 
   const unsigned prefixSize = GetRootPrefixSize(s);
   if (prefixSize != 0)
@@ -897,7 +863,6 @@ bool GetFullPath(CFSTR dirPrefix, CFSTR s, FString &res)
   res = us2fs(curDir);
   res += us2fs(temp);
   
-  #endif // UNDER_CE
 
   return true;
 }

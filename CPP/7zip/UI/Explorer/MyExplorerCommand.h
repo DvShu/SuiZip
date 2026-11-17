@@ -17,9 +17,7 @@
     ShObjIdl.h      : old Windows SDK
     ShObjIdl_core.h : new Windows 10 SDK */
 
-#ifndef Z7_OLD_WIN_SDK
 #include <ShObjIdl.h>
-#endif
 
 #ifndef __IShellItem_INTERFACE_DEFINED__
 #define __IShellItem_INTERFACE_DEFINED__

@@ -23,10 +23,6 @@ bool CCopyDialog::OnInit()
   NControl::CStatic staticContol;
   staticContol.Attach(GetItem(IDT_COPY));
   staticContol.SetText(Static);
-  #ifdef UNDER_CE
-  // we do it, since WinCE selects Value\something instead of Value !!!!
-  _path.AddString(Value);
-  #endif
   FOR_VECTOR (i, Strings)
     _path.AddString(Strings[i]);
   _path.SetText(Value);

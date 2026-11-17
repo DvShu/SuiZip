@@ -1027,7 +1027,7 @@ static HRESULT EnumerateInArchiveItems(
   return S_OK;
 }
 
-#if defined(_WIN32) && !defined(UNDER_CE)
+#if defined(_WIN32)
 
 #if defined(__MINGW32__) || defined(__MINGW64__)
 #include <mapi.h>
@@ -1380,7 +1380,7 @@ HRESULT UpdateArchive(
 
       dirItems.SymLinks = options.SymLinks.Val;
 
-      #if defined(_WIN32) && !defined(UNDER_CE)
+      #if defined(_WIN32)
       dirItems.ReadSecure = options.NtSecurity.Val;
       #endif
 
@@ -1429,7 +1429,7 @@ HRESULT UpdateArchive(
             parentDirItem_Ptr = &parentDirItem;
 
             int secureIndex = -1;
-            #if defined(_WIN32) && !defined(UNDER_CE)
+            #if defined(_WIN32)
             if (options.NtSecurity.Val)
               dirItems.AddSecurityItem(prefix, secureIndex);
             #endif
@@ -1697,7 +1697,7 @@ HRESULT UpdateArchive(
   }
 
 
-  #if defined(_WIN32) && !defined(UNDER_CE)
+  #if defined(_WIN32)
 
 Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
   

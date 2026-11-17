@@ -2,9 +2,6 @@
 
 #include "StdAfx.h"
 
-#ifndef _UNICODE
-#include "../../../Common/StringConvert.h"
-#endif
 
 #include "../../../Windows/FileDir.h"
 
@@ -16,9 +13,6 @@
 #include <ShlObj.h>
 #endif
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 CExtToIconMap g_Ext_to_Icon_Map;
 
@@ -51,52 +45,12 @@ int Shell_GetFileInfo_SysIconIndex_for_CSIDL(int csidl)
   return -1;
 }
 
-#ifndef _UNICODE
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-typedef DWORD_PTR (WINAPI * Func_SHGetFileInfoW)(LPCWSTR pszPath, DWORD attrib, SHFILEINFOW *psfi, UINT cbFileInfo, UINT uFlags);
 
-static struct C_SHGetFileInfo_Init
-{
-  Func_SHGetFileInfoW f_SHGetFileInfoW;
-  C_SHGetFileInfo_Init()
-  {
-       f_SHGetFileInfoW = Z7_GET_PROC_ADDRESS(
-    Func_SHGetFileInfoW, ::GetModuleHandleW(L"shell32.dll"),
-        "SHGetFileInfoW");
-    // f_SHGetFileInfoW = NULL; // for debug
-  }
-} g_SHGetFileInfo_Init;
-#endif
-
-#ifdef _UNICODE
 #define My_SHGetFileInfoW SHGetFileInfoW
-#else
-static DWORD_PTR My_SHGetFileInfoW(LPCWSTR pszPath, DWORD attrib, SHFILEINFOW *psfi, UINT cbFileInfo, UINT uFlags)
-{
-  if (!g_SHGetFileInfo_Init.f_SHGetFileInfoW)
-    return 0;
-  return g_SHGetFileInfo_Init.f_SHGetFileInfoW(pszPath, attrib, psfi, cbFileInfo, uFlags);
-}
-#endif
 
 DWORD_PTR Shell_GetFileInfo_SysIconIndex_for_Path_attrib_iconIndexRef(
     CFSTR path, DWORD attrib, int &iconIndex)
 {
-#ifndef _UNICODE
-  if (!g_IsNT || !g_SHGetFileInfo_Init.f_SHGetFileInfoW)
-  {
-    SHFILEINFO shFileInfo;
-    // ZeroMemory(&shFileInfo, sizeof(shFileInfo));
-    shFileInfo.iIcon = -1;   // optional
-    const DWORD_PTR res = ::SHGetFileInfo(fs2fas(path),
-        attrib ? attrib : FILE_ATTRIBUTE_ARCHIVE,
-        &shFileInfo, sizeof(shFileInfo),
-        SHGFI_USEFILEATTRIBUTES | SHGFI_SYSICONINDEX);
-    iconIndex = shFileInfo.iIcon;
-    return res;
-  }
-  else
-#endif
   {
     SHFILEINFOW shFileInfo;
     // ZeroMemory(&shFileInfo, sizeof(shFileInfo));
@@ -251,9 +205,6 @@ int CExtToIconMap::GetIconIndex(DWORD attrib, const wchar_t *fileName /*, UStrin
     }
     CAttribIconPair pair;
     pair.IconIndex = Shell_GetFileInfo_SysIconIndex_for_Path(
-        #ifdef UNDER_CE
-        FTEXT("\\")
-        #endif
         FTEXT("__DIR__")
         , attrib
         // , pair.TypeName
@@ -305,9 +256,6 @@ int CExtToIconMap::GetIconIndex(DWORD attrib, const wchar_t *fileName /*, UStrin
     if (!SplitIconIndex_Defined)
     {
       Shell_GetFileInfo_SysIconIndex_for_Path_attrib_iconIndexRef(
-          #ifdef UNDER_CE
-          FTEXT("\\")
-          #endif
           FTEXT("__FILE__.001"), FILE_ATTRIBUTE_ARCHIVE, SplitIconIndex);
       SplitIconIndex_Defined = true;
     }

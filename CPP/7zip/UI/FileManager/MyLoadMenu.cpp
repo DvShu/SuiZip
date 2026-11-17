@@ -3,9 +3,7 @@
 
 #include "StdAfx.h"
 
-#if defined(_UNICODE) && !defined(UNDER_CE)
 #include <oleacc.h>
-#endif
 
 #include "../../../Windows/FileDir.h"
 #include "../../../Windows/Menu.h"
@@ -54,7 +52,6 @@ enum
   k_MenuIndex_Bookmarks
 };
 
-#if defined(Z7_LANG) || (defined(_UNICODE) && !defined(UNDER_CE))
 static const UInt32 k_LangID_TopMenuItems[] =
 {
   IDM_FILE,
@@ -64,7 +61,6 @@ static const UInt32 k_LangID_TopMenuItems[] =
   IDM_TOOLS,
   IDM_HELP
 };
-#endif
 
 #ifdef Z7_LANG
 static const UInt32 k_LangID_Toolbars = IDM_VIEW_TOOLBARS;
@@ -328,7 +324,6 @@ static void CopyMenu(HMENU srcMenuSpec, HMENU destMenuSpec)
 }
 
 
-#if defined(_UNICODE) && !defined(UNDER_CE)
 
 struct CMenuBarLabel
 {
@@ -506,7 +501,6 @@ bool HandleMenuBarMessage(HWND window, UINT message, WPARAM wParam, LPARAM lPara
   return false;
 }
 
-#endif
 
 
 /* use for (needResetMenu):
@@ -515,20 +509,6 @@ bool HandleMenuBarMessage(HWND window, UINT message, WPARAM wParam, LPARAM lPara
 */
 void MyLoadMenu(bool needResetMenu)
 {
-  #ifdef UNDER_CE
-
-  const HMENU oldMenu = g_App._commandBar.GetMenu(0);
-  if (oldMenu)
-    ::DestroyMenu(oldMenu);
-  /* BOOL b = */ g_App._commandBar.InsertMenubar(g_hInstance, IDM_MENU, 0);
-  const HMENU baseMenu = g_App._commandBar.GetMenu(0);
-  // if (startInit)
-  // SetIdsForSubMenus(baseMenu, 0, 0);
-  if (!g_LangID.IsEmpty())
-    MyChangeMenu(baseMenu, 0, 0);
-  g_App._commandBar.DrawMenuBar(0);
- 
-  #else // UNDER_CE
 
   const HWND hWnd = g_HWND;
   bool menuWasChanged = false;
@@ -566,15 +546,12 @@ void MyLoadMenu(bool needResetMenu)
   }
   #endif
 
-  #ifdef _UNICODE
   StyleMenuBar(baseMenu);
   menuWasChanged = true;
-  #endif
 
   if (menuWasChanged)
     ::DrawMenuBar(hWnd);
 
-  #endif // UNDER_CE
 
   // menuWasChanged = false; // for debug
   if (menuWasChanged || !(HMENU)g_FileMenu)
@@ -589,11 +566,7 @@ void MyLoadMenu(bool needResetMenu)
 void OnMenuActivating(HWND /* hWnd */, HMENU hMenu, int position)
 {
   HMENU mainMenu =
-    #ifdef UNDER_CE
-    g_App._commandBar.GetMenu(0);
-    #else
     ::GetMenu(g_HWND)
-    #endif
     ;
   
   if (::GetSubMenu(mainMenu, position) != hMenu)
@@ -990,10 +963,8 @@ bool ExecuteFileCommand(unsigned id)
     case IDM_COMMENT: g_App.Comment(); break;
     case IDM_CREATE_FOLDER: g_App.CreateFolder(); break;
     case IDM_CREATE_FILE: g_App.CreateFile(); break;
-    #ifndef UNDER_CE
     case IDM_LINK: g_App.Link(); break;
     case IDM_ALT_STREAMS: g_App.OpenAltStreams(); break;
-    #endif
     default: return false;
   }
   return true;

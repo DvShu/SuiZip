@@ -21,7 +21,6 @@
 #include "../../../Windows/ErrorMsg.h"
 #include "../../../Windows/FileDir.h"
 #include "../../../Windows/FileName.h"
-#include "../../../Windows/NtCheck.h"
 #include "../../../Windows/ResourceString.h"
 
 #include "../../ICoder.h"
@@ -45,40 +44,8 @@ extern
 bool g_DisableUserQuestions;
 bool g_DisableUserQuestions;
 
-#ifndef UNDER_CE
 
-#if !defined(Z7_WIN32_WINNT_MIN) || Z7_WIN32_WINNT_MIN < 0x0500 // win2000
-#define Z7_USE_DYN_ComCtl32Version
-#endif
 
-#ifdef Z7_USE_DYN_ComCtl32Version
-Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-
-static DWORD GetDllVersion(LPCTSTR dllName)
-{
-  DWORD dwVersion = 0;
-  const HINSTANCE hinstDll = LoadLibrary(dllName);
-  if (hinstDll)
-  {
-    const
-    DLLGETVERSIONPROC func_DllGetVersion = Z7_GET_PROC_ADDRESS(
-    DLLGETVERSIONPROC, hinstDll, "DllGetVersion");
-    if (func_DllGetVersion)
-    {
-      DLLVERSIONINFO dvi;
-      ZeroMemory(&dvi, sizeof(dvi));
-      dvi.cbSize = sizeof(dvi);
-      const HRESULT hr = func_DllGetVersion(&dvi);
-      if (SUCCEEDED(hr))
-        dwVersion = (DWORD)MAKELONG(dvi.dwMinorVersion, dvi.dwMajorVersion);
-    }
-    FreeLibrary(hinstDll);
-  }
-  return dwVersion;
-}
-
-#endif
-#endif
 
 extern
 bool g_LVN_ITEMACTIVATE_Support;
@@ -94,18 +61,8 @@ static void ErrorMessageForHRESULT(HRESULT res)
 static int APIENTRY WinMain2()
 {
   // OleInitialize is required for ProgressBar in TaskBar.
-#ifndef UNDER_CE
   OleInitialize(NULL);
-#endif
 
-#ifndef UNDER_CE
-#ifdef Z7_USE_DYN_ComCtl32Version
-  {
-    const DWORD g_ComCtl32Version = ::GetDllVersion(TEXT("comctl32.dll"));
-    g_LVN_ITEMACTIVATE_Support = (g_ComCtl32Version >= MAKELONG(71, 4));
-  }
-#endif
-#endif
   
   UString password;
   bool assumeYes = false;
@@ -114,10 +71,8 @@ static int APIENTRY WinMain2()
   UStringVector commandStrings;
   NCommandLineParser::SplitCommandLine(GetCommandLineW(), commandStrings);
 
-  #ifndef UNDER_CE
   if (commandStrings.Size() > 0)
     commandStrings.Delete(0);
-  #endif
 
   FOR_VECTOR (i, commandStrings)
   {
@@ -231,21 +186,13 @@ static int APIENTRY WinMain2()
   return NExitCode::kFatalError;
 }
 
-#if defined(_WIN32) && defined(_UNICODE) && !defined(_WIN64) && !defined(UNDER_CE)
-#define NT_CHECK_FAIL_ACTION ShowErrorMessage(L"Unsupported Windows version"); return NExitCode::kFatalError;
-#endif
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */,
-  #ifdef UNDER_CE
-  LPWSTR
-  #else
   LPSTR
-  #endif
   /* lpCmdLine */, int /* nCmdShow */)
 {
   g_hInstance = (HINSTANCE)hInstance;
 
-  NT_CHECK
 
   try
   {

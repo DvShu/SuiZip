@@ -11,10 +11,8 @@
 #include "FilePlugins.h"
 #include "RegistryAssociations.h"
 
-#ifndef UNDER_CE
 extern const wchar_t kApplyAllUsersAssociations[];
 LONG ApplyAllUsersAssociations(const UString &arguments);
-#endif
 
 enum EExtState
 {
@@ -80,11 +78,7 @@ struct CAssoc
   }
 };
 
-#ifdef UNDER_CE
-  #define NUM_EXT_GROUPS 1
-#else
   #define NUM_EXT_GROUPS 2
-#endif
 
 class CSystemPage: public NWindows::NControl::CPropertyPage
 {

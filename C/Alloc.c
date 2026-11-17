@@ -10,10 +10,6 @@
 
 #include "Alloc.h"
 
-#if defined(Z7_LARGE_PAGES) && defined(_WIN32) && \
-    (!defined(Z7_WIN32_WINNT_MIN) || Z7_WIN32_WINNT_MIN < 0x0502)  // < Win2003 (xp-64)
-  #define Z7_USE_DYN_GetLargePageMinimum
-#endif
 
 // for debug:
 #if 0
@@ -614,20 +610,7 @@ void z7_LargePage_Set(UInt32 flags, size_t pageSize, size_t threshold)
   {
     if ((flags & Z7_LARGE_PAGES_FLAG_DIRECT_PAGE_SIZE) == 0)
     {
-#ifdef Z7_USE_DYN_GetLargePageMinimum
-      Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
-typedef SIZE_T (WINAPI *Func_GetLargePageMinimum)(VOID);
-      const
-        Func_GetLargePageMinimum fn =
-       (Func_GetLargePageMinimum) Z7_CAST_FUNC_C GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
-            "GetLargePageMinimum");
-      if (fn)
-        pageSize = fn();
-      else
-        pageSize = 0;
-#else
       pageSize = GetLargePageMinimum();
-#endif
       if (pageSize & (pageSize - 1))
         pageSize = 0;
     }

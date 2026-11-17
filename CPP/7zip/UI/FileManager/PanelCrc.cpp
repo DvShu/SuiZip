@@ -64,7 +64,7 @@ DWORD CDirEnumerator::GetNextFile(NFind::CFileInfo &fi, bool &filled, FString &r
   
   for (;;)
   {
-    #if defined(_WIN32) && !defined(UNDER_CE)
+    #if defined(_WIN32)
     bool isRootPrefix = (BasePrefix.IsEmpty() || (NName::IsSuperPath(BasePrefix) && BasePrefix[NName::kSuperPathPrefixSize] == 0));
     #endif
 
@@ -77,7 +77,7 @@ DWORD CDirEnumerator::GetNextFile(NFind::CFileInfo &fi, bool &filled, FString &r
       if (pos >= 0)
         resPath.SetFrom(path, (unsigned)pos + 1);
 
-      #if defined(_WIN32) && !defined(UNDER_CE)
+      #if defined(_WIN32)
       if (isRootPrefix && path.Len() == 2 && NName::IsDrivePath2(path))
       {
         // we use "c:" item as directory item

@@ -23,9 +23,6 @@ using namespace NDir;
 using namespace NName;
 using namespace NFind;
 
-#ifndef _UNICODE
-extern bool g_IsNT;
-#endif
 
 namespace NFsFolder {
 
@@ -184,40 +181,7 @@ static DWORD CALLBACK CopyProgressRoutine(
   return (pi.ProgressResult == S_OK ? PROGRESS_CONTINUE : PROGRESS_CANCEL);
 }
 
-#if !defined(Z7_WIN32_WINNT_MIN) || Z7_WIN32_WINNT_MIN < 0x0500  // win2000
-#define Z7_USE_DYN_MoveFileWithProgressW
-#endif
 
-#ifdef Z7_USE_DYN_MoveFileWithProgressW
-// nt4
-typedef BOOL (WINAPI * Func_CopyFileExA)(
-    IN LPCSTR lpExistingFileName,
-    IN LPCSTR lpNewFileName,
-    IN LPPROGRESS_ROUTINE lpProgressRoutine OPTIONAL,
-    IN LPVOID lpData OPTIONAL,
-    IN LPBOOL pbCancel OPTIONAL,
-    IN DWORD dwCopyFlags
-    );
-
-// nt4
-typedef BOOL (WINAPI * Func_CopyFileExW)(
-    IN LPCWSTR lpExistingFileName,
-    IN LPCWSTR lpNewFileName,
-    IN LPPROGRESS_ROUTINE lpProgressRoutine OPTIONAL,
-    IN LPVOID lpData OPTIONAL,
-    IN LPBOOL pbCancel OPTIONAL,
-    IN DWORD dwCopyFlags
-    );
-
-// win2000
-typedef BOOL (WINAPI * Func_MoveFileWithProgressW)(
-    IN LPCWSTR lpExistingFileName,
-    IN LPCWSTR lpNewFileName,
-    IN LPPROGRESS_ROUTINE lpProgressRoutine OPTIONAL,
-    IN LPVOID lpData OPTIONAL,
-    IN DWORD dwFlags
-    );
-#endif
 
 struct CCopyState
 {
@@ -227,18 +191,6 @@ struct CCopyState
   bool UseReadWriteMode;
   bool IsAltStreamsDest;
 
-#ifdef Z7_USE_DYN_MoveFileWithProgressW
-private:
-  Func_CopyFileExW my_CopyFileExW;
-  #ifndef UNDER_CE
-  Func_MoveFileWithProgressW my_MoveFileWithProgressW;
-  #endif
-  #ifndef _UNICODE
-  Func_CopyFileExA my_CopyFileExA;
-  #endif
-public:
-  CCopyState();
-#endif
 
   bool CopyFile_NT(const wchar_t *oldFile, const wchar_t *newFile);
   bool CopyFile_Sys(CFSTR oldFile, CFSTR newFile);
@@ -254,44 +206,6 @@ HRESULT CCopyState::CallProgress()
   return ProgressInfo.Progress->SetCompleted(&ProgressInfo.StartPos);
 }
 
-#ifdef Z7_USE_DYN_MoveFileWithProgressW
-
-CCopyState::CCopyState()
-{
-  my_CopyFileExW = NULL;
-  #ifndef UNDER_CE
-  my_MoveFileWithProgressW = NULL;
-  #endif
-  #ifndef _UNICODE
-  my_CopyFileExA = NULL;
-  if (!g_IsNT)
-  {
-      my_CopyFileExA = Z7_GET_PROC_ADDRESS(
-    Func_CopyFileExA, ::GetModuleHandleA("kernel32.dll"),
-        "CopyFileExA");
-  }
-  else
-  #endif
-  {
-    const HMODULE module = ::GetModuleHandleW(
-      #ifdef UNDER_CE
-        L"coredll.dll"
-      #else
-        L"kernel32.dll"
-      #endif
-        );
-      my_CopyFileExW = Z7_GET_PROC_ADDRESS(
-    Func_CopyFileExW, module,
-        "CopyFileExW");
-    #ifndef UNDER_CE
-      my_MoveFileWithProgressW = Z7_GET_PROC_ADDRESS(
-    Func_MoveFileWithProgressW, module,
-        "MoveFileWithProgressW");
-    #endif
-  }
-}
-
-#endif
 
 /* WinXP-64:
   CopyFileW(fromFile, toFile:altStream)
@@ -302,48 +216,14 @@ CCopyState::CCopyState()
 bool CCopyState::CopyFile_NT(const wchar_t *oldFile, const wchar_t *newFile)
 {
   BOOL cancelFlag = FALSE;
-#ifdef Z7_USE_DYN_MoveFileWithProgressW
-  if (my_CopyFileExW)
-#endif
     return BOOLToBool(
-#ifdef Z7_USE_DYN_MoveFileWithProgressW
-      my_CopyFileExW
-#else
          CopyFileExW
-#endif
       (oldFile, newFile, CopyProgressRoutine,
         &ProgressInfo, &cancelFlag, COPY_FILE_FAIL_IF_EXISTS));
-#ifdef Z7_USE_DYN_MoveFileWithProgressW
-  return BOOLToBool(::CopyFileW(oldFile, newFile, TRUE));
-#endif
 }
 
 bool CCopyState::CopyFile_Sys(CFSTR oldFile, CFSTR newFile)
 {
-  #ifndef _UNICODE
-  if (!g_IsNT)
-  {
-#ifdef Z7_USE_DYN_MoveFileWithProgressW
-    if (my_CopyFileExA)
-#endif
-    {
-      BOOL cancelFlag = FALSE;
-      if (
-#ifdef Z7_USE_DYN_MoveFileWithProgressW
-          my_CopyFileExA
-#else
-             CopyFileExA
-#endif
-          (fs2fas(oldFile), fs2fas(newFile),
-          CopyProgressRoutine, &ProgressInfo, &cancelFlag, COPY_FILE_FAIL_IF_EXISTS))
-        return true;
-      if (::GetLastError() != ERROR_CALL_NOT_IMPLEMENTED)
-        return false;
-    }
-    return BOOLToBool(::CopyFile(fs2fas(oldFile), fs2fas(newFile), TRUE));
-  }
-  else
-  #endif
   {
     IF_USE_MAIN_PATH_2(oldFile, newFile)
     {
@@ -368,21 +248,13 @@ bool CCopyState::CopyFile_Sys(CFSTR oldFile, CFSTR newFile)
 
 bool CCopyState::MoveFile_Sys(CFSTR oldFile, CFSTR newFile)
 {
-  #ifndef UNDER_CE
   // if (IsItWindows2000orHigher())
   // {
-#ifdef Z7_USE_DYN_MoveFileWithProgressW
-    if (my_MoveFileWithProgressW)
-#endif
     {
       IF_USE_MAIN_PATH_2(oldFile, newFile)
       {
         if (
-#ifdef Z7_USE_DYN_MoveFileWithProgressW
-          my_MoveFileWithProgressW
-#else
              MoveFileWithProgressW
-#endif
           (fs2us(oldFile), fs2us(newFile), CopyProgressRoutine,
             &ProgressInfo, MOVEFILE_COPY_ALLOWED))
           return true;
@@ -396,11 +268,7 @@ bool CCopyState::MoveFile_Sys(CFSTR oldFile, CFSTR newFile)
         if (!GetSuperPaths(oldFile, newFile, superPathOld, superPathNew, USE_MAIN_PATH_2))
           return false;
         if (
-#ifdef Z7_USE_DYN_MoveFileWithProgressW
-          my_MoveFileWithProgressW
-#else
              MoveFileWithProgressW
-#endif
             (superPathOld, superPathNew, CopyProgressRoutine,
             &ProgressInfo, MOVEFILE_COPY_ALLOWED))
           return true;
@@ -411,7 +279,6 @@ bool CCopyState::MoveFile_Sys(CFSTR oldFile, CFSTR newFile)
     }
   // }
   // else
-  #endif
     return MyMoveFile(oldFile, newFile);
 }
 

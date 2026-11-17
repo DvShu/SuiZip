@@ -96,6 +96,7 @@ static LPCTSTR const kShowPassword = TEXT("ShowPassword");
 static LPCTSTR const kPathHistory = TEXT("PathHistory");
 static LPCTSTR const kSplitDest = TEXT("SplitDest");
 static LPCTSTR const kElimDup = TEXT("ElimDup");
+static LPCTSTR const kSmartExtract = TEXT("SmartExtract");
 // static LPCTSTR const kAltStreams = TEXT("AltStreams");
 static LPCTSTR const kNtSecur = TEXT("Security");
 static LPCTSTR const kMemLimit = TEXT("MemLimit");
@@ -113,6 +114,7 @@ void CInfo::Save() const
 
   Key_Set_BoolPair(key, kSplitDest, SplitDest);
   Key_Set_BoolPair(key, kElimDup, ElimDup);
+  Key_Set_BoolPair(key, kSmartExtract, SmartExtract);
   // Key_Set_BoolPair(key, kAltStreams, AltStreams);
   Key_Set_BoolPair(key, kNtSecur, NtSecurity);
   Key_Set_BoolPair(key, kShowPassword, ShowPassword);
@@ -145,6 +147,8 @@ void CInfo::Load()
   OverwriteMode_Force = false;
   
   SplitDest.Val = true;
+  SmartExtract.Val = true;
+  SmartExtract.Def = false;
 
   Paths.Clear();
 
@@ -169,6 +173,7 @@ void CInfo::Load()
   Key_Get_BoolPair_true(key, kSplitDest, SplitDest);
 
   Key_Get_BoolPair(key, kElimDup, ElimDup);
+  Key_Get_BoolPair_true(key, kSmartExtract, SmartExtract);
   // Key_Get_BoolPair(key, kAltStreams, AltStreams);
   Key_Get_BoolPair(key, kNtSecur, NtSecurity);
   Key_Get_BoolPair(key, kShowPassword, ShowPassword);
@@ -541,6 +546,7 @@ static LPCTSTR const kCascadedMenu = TEXT("CascadedMenu");
 static LPCTSTR const kContextMenu = TEXT("ContextMenu");
 static LPCTSTR const kMenuIcons = TEXT("MenuIcons");
 static LPCTSTR const kElimDup = TEXT("ElimDupExtract");
+static LPCTSTR const kSmartExtract = TEXT("SmartExtract");
 static LPCTSTR const kWriteZoneId = TEXT("WriteZoneIdExtract");
 
 void CContextMenuInfo::Save() const
@@ -552,6 +558,7 @@ void CContextMenuInfo::Save() const
   Key_Set_BoolPair(key, kCascadedMenu, Cascaded);
   Key_Set_BoolPair(key, kMenuIcons, MenuIcons);
   Key_Set_BoolPair(key, kElimDup, ElimDup);
+  Key_Set_BoolPair(key, kSmartExtract, SmartExtract);
 
   Key_Set_UInt32(key, kWriteZoneId, WriteZone);
   
@@ -569,6 +576,9 @@ void CContextMenuInfo::Load()
 
   ElimDup.Val = true;
   ElimDup.Def = false;
+
+  SmartExtract.Val = true;
+  SmartExtract.Def = false;
 
   WriteZone = (UInt32)(Int32)-1;
 
@@ -591,6 +601,7 @@ void CContextMenuInfo::Load()
   
   Key_Get_BoolPair_true(key, kCascadedMenu, Cascaded);
   Key_Get_BoolPair_true(key, kElimDup, ElimDup);
+  Key_Get_BoolPair_true(key, kSmartExtract, SmartExtract);
   Key_Get_BoolPair(key, kMenuIcons, MenuIcons);
 
   Key_Get_UInt32(key, kWriteZoneId, WriteZone);

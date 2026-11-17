@@ -11,9 +11,7 @@ MY_VERSION_INFO(MY_VFT_APP, MY_PRODUCT_NAME " GUI", "7zg", "7zg.exe")
 
 IDI_ICON ICON "../../../../assets/suizip.ico"
 
-#ifndef UNDER_CE
 1 24 MOVEABLE PURE "7zG.exe.manifest"
-#endif
 
 #include "../FileManager/PropertyName.rc"
 #include "../FileManager/MemDialog.rc"

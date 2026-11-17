@@ -568,7 +568,6 @@ HRESULT HashCalc(
       isAltStream = di.IsAltStream;
      #endif
 
-      #ifndef UNDER_CE
       // if (di.AreReparseData())
       if (di.ReparseData.Size() != 0)
       {
@@ -577,7 +576,6 @@ HRESULT HashCalc(
         inStreamSpec->Init(di.ReparseData, di.ReparseData.Size());
       }
       else
-      #endif
       {
         CInFileStream *inStreamSpec = new CInFileStream;
         inStreamSpec->Set_PreserveATime(options.PreserveATime);
