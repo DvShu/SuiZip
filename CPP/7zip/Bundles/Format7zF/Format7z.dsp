@@ -193,7 +193,7 @@ SOURCE=..\..\Archive\Icons\z.ico
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\Archive\Icons\zip.ico
+SOURCE=..\..\..\..\assets\suizip.ico
 # End Source File
 # Begin Source File
 

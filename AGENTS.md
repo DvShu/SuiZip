@@ -23,7 +23,7 @@
 2. 按 [Windows 安装包](#windows-安装包) 的命令在本地打包，等待脚本校验通过，并记录 `dist` 中生成的 x64 安装包路径和大小。
 3. 提交本次发布的源码改动和版本号，确保提交内容与打包时使用的源码一致。安装包保留在本地 `dist`。在该提交上创建 `v<版本号>` 标签，例如 `v0.1.0`。
 4. 按 [提交与推送约定](#提交与推送约定) 推送当前分支，再将该标签推送到同一个 GitHub 仓库。确认分支和标签均已推送成功。
-5. 在浏览器中打开该仓库的 `/releases/new?tag=v<版本号>`，让 GitHub 的新建 Release 表单预选刚推送的标签。回复版本号、提交标识、推送结果、标签、新建 Release 链接，以及本地安装包路径和大小。由用户在表单中手动添加 EXE 附件并发布 Release。参见 [GitHub Release 表单参数](https://docs.github.com/en/repositories/releasing-projects-on-github/automation-for-release-forms-with-query-parameters)。
+5. 回复版本号、提交标识、推送结果、标签、本地安装包路径和大小，并附上可点击的 GitHub 新建 Release 链接。链接使用该仓库的网页地址加 `/releases/new?tag=v<版本号>`，预选刚推送的标签。由用户右键链接并用默认浏览器打开，再手动添加 EXE 附件并发布 Release。参见 [GitHub Release 表单参数](https://docs.github.com/en/repositories/releasing-projects-on-github/automation-for-release-forms-with-query-parameters)。
 
 ## 本地界面预览
 

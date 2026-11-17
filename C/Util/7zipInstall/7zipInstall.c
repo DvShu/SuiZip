@@ -28,12 +28,19 @@ typedef enum {
 #else
 #include <ShlObj.h>
 #endif
+#if !defined(UNDER_CE) && !defined(Z7_OLD_WIN_SDK)
+#include <ExDisp.h>
+#include <ShlDisp.h>
+#include <ShlGuid.h>
+#endif
 
 #include "../../7z.h"
 #include "../../7zAlloc.h"
 #include "../../7zCrc.h"
 #include "../../7zFile.h"
 /* Modified 2026-11-16 for the fork: use its name and product version in Setup. */
+/* Modified 2026-11-17 for the fork: refresh archive icons after installing. */
+/* Modified 2026-11-17 for the fork: launch the file manager after interactive setup. */
 #include "../../7zVersion.h"
 #include "../../CpuArch.h"
 #include "../../DllSecur.h"
@@ -626,7 +633,7 @@ static void SetProductFolder(WCHAR *s)
 }
     
 
-static int Install(void);
+static int Install(BoolInt *restartRequired);
 
 static void OnClose(void)
 {
@@ -848,6 +855,86 @@ static void SetShellProgramsGroup(HWND hwndOwner)
 
   #endif
 }
+
+#if !defined(UNDER_CE) && !defined(Z7_OLD_WIN_SDK)
+static HRESULT LaunchFileManager(void)
+{
+  IShellWindows *shellWindows = NULL;
+  IDispatch *desktop = NULL;
+  IServiceProvider *desktopServices = NULL;
+  IShellBrowser *desktopBrowser = NULL;
+  IShellView *desktopView = NULL;
+  IDispatch *background = NULL;
+  IShellFolderViewDual *folderView = NULL;
+  IDispatch *application = NULL;
+  IShellDispatch2 *explorer = NULL;
+  BSTR file = NULL;
+  VARIANT empty;
+  VARIANT directory;
+  VARIANT show;
+  long desktopWindow = 0;
+  WCHAR fileManager[Z7_ARRAY_SIZE(path) + sizeof("7zFM.exe")];
+  HRESULT result;
+
+  VariantInit(&empty);
+  VariantInit(&directory);
+  VariantInit(&show);
+  show.vt = VT_I4;
+  show.lVal = SW_SHOWNORMAL;
+
+  // Use the desktop Explorer process so the file manager runs as the signed-in user.
+  result = CoCreateInstance(&CLSID_ShellWindows, NULL, CLSCTX_LOCAL_SERVER,
+      &IID_IShellWindows, (void **)&shellWindows);
+  if (FAILED(result)) goto cleanup;
+  result = shellWindows->lpVtbl->FindWindowSW(shellWindows, &empty, &empty,
+      SWC_DESKTOP, &desktopWindow, SWFO_NEEDDISPATCH, &desktop);
+  if (result != S_OK)
+  {
+    if (SUCCEEDED(result))
+      result = HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
+    goto cleanup;
+  }
+  result = desktop->lpVtbl->QueryInterface(desktop, &IID_IServiceProvider, (void **)&desktopServices);
+  if (FAILED(result)) goto cleanup;
+  result = desktopServices->lpVtbl->QueryService(desktopServices, &SID_STopLevelBrowser,
+      &IID_IShellBrowser, (void **)&desktopBrowser);
+  if (FAILED(result)) goto cleanup;
+  result = desktopBrowser->lpVtbl->QueryActiveShellView(desktopBrowser, &desktopView);
+  if (FAILED(result)) goto cleanup;
+  result = desktopView->lpVtbl->GetItemObject(desktopView, SVGIO_BACKGROUND, &IID_IDispatch, (void **)&background);
+  if (FAILED(result)) goto cleanup;
+  result = background->lpVtbl->QueryInterface(background, &IID_IShellFolderViewDual, (void **)&folderView);
+  if (FAILED(result)) goto cleanup;
+  result = folderView->lpVtbl->get_Application(folderView, &application);
+  if (FAILED(result)) goto cleanup;
+  result = application->lpVtbl->QueryInterface(application, &IID_IShellDispatch2, (void **)&explorer);
+  if (FAILED(result)) goto cleanup;
+
+  wcscpy(fileManager, path);
+  CatAscii(fileManager, "7zFM.exe");
+  file = SysAllocString(fileManager);
+  directory.bstrVal = SysAllocString(path);
+  directory.vt = VT_BSTR;
+  if (!file || !directory.bstrVal)
+    result = E_OUTOFMEMORY;
+  else
+    result = explorer->lpVtbl->ShellExecute(explorer, file, empty, directory, empty, show);
+
+cleanup:
+  VariantClear(&directory);
+  SysFreeString(file);
+  if (explorer) explorer->lpVtbl->Release(explorer);
+  if (application) application->lpVtbl->Release(application);
+  if (folderView) folderView->lpVtbl->Release(folderView);
+  if (background) background->lpVtbl->Release(background);
+  if (desktopView) desktopView->lpVtbl->Release(desktopView);
+  if (desktopBrowser) desktopBrowser->lpVtbl->Release(desktopBrowser);
+  if (desktopServices) desktopServices->lpVtbl->Release(desktopServices);
+  if (desktop) desktop->lpVtbl->Release(desktop);
+  if (shellWindows) shellWindows->lpVtbl->Release(shellWindows);
+  return result;
+}
+#endif
 
 static LPCWSTR const k_Shell_Approved = L"Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved";
 static LPCWSTR const k_7zip_ShellExtension = LLL(MY_PRODUCT_NAME) L" Shell Extension";
@@ -1172,7 +1259,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   NormalizePrefix(path);
 
   if (g_SilentMode)
-    return Install();
+    return Install(NULL);
 
   {
     int retCode = 1;
@@ -1213,7 +1300,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
         if (g_Install_was_Pressed && !g_Finished)
         {
-          retCode = Install();
+          BoolInt restartRequired = False;
+          retCode = Install(&restartRequired);
           g_Finished = True;
           if (retCode != 0)
             break;
@@ -1225,6 +1313,11 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             EnableWindow(GetDlgItem(g_HWND, IDCANCEL), FALSE);
             SendMessage(g_HWND, WM_NEXTDLGCTL, (WPARAM)(void *)GetDlgItem(g_HWND, IDOK), TRUE);
           }
+          #if !defined(UNDER_CE) && !defined(Z7_OLD_WIN_SDK)
+          if (!restartRequired && FAILED(LaunchFileManager()) && g_HWND)
+            MessageBoxW(g_HWND, L"Could not open " LLL(MY_PRODUCT_NAME)
+                L". You can open it from the Start menu.", k_7zip_Setup, MB_ICONINFORMATION);
+          #endif
         }
       }
 
@@ -1256,7 +1349,7 @@ static BoolInt GetErrorMessage(DWORD errorCode, WCHAR *message)
 
 
 
-static int Install(void)
+static int Install(BoolInt *restartRequired)
 {
   CFileInStream archiveStream;
   CLookToRead2 lookStream;
@@ -1618,6 +1711,9 @@ if (res == SZ_OK)
       WriteShellEx();
       
       SetShellProgramsGroup(g_HWND);
+      #ifndef UNDER_CE
+      SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+      #endif
       if (!g_SilentMode)
         SetWindowTextW(g_InfoLine_HWND, k_7zip_with_Ver L" is installed");
     }
@@ -1636,6 +1732,8 @@ if (res == SZ_OK)
 
   if (res == SZ_OK)
   {
+    if (restartRequired)
+      *restartRequired = (needRebootLevel > 1);
     if (!g_SilentMode && needRebootLevel > 1)
     {
       if (MessageBoxW(g_HWND, L"You must restart your system to complete the installation.\nRestart now?",
