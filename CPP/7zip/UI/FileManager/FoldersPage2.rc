@@ -1,11 +1,16 @@
-CAPTION "Folders"
+CAPTION "Temporary files"
 BEGIN
-  // GROUPBOX   "&Working folder", IDT_FOLDERS_WORKING_FOLDER, m, m, xc, 98
-  LTEXT      "&Working folder", IDT_FOLDERS_WORKING_FOLDER, m, m, xc, 8
-  MY_CONTROL_AUTORADIOBUTTON_GROUP ( "&System temp folder", IDR_FOLDERS_WORK_SYSTEM,     m, 20, xc)
-  MY_CONTROL_AUTORADIOBUTTON (       "&Current",            IDR_FOLDERS_WORK_CURRENT,    m, 34, xc)
-  MY_CONTROL_AUTORADIOBUTTON (       "Specified:",          IDR_FOLDERS_WORK_SPECIFIED,  m, 48, xc)
-  EDITTEXT   IDE_FOLDERS_WORK_PATH, m + m, 62, xc - m - m - bxsDots, 14, ES_AUTOHSCROLL
-  PUSHBUTTON "...", IDB_FOLDERS_WORK_PATH, xs - m - bxsDots, 61, bxsDots, bys
-  MY_CONTROL_CHECKBOX ( "Use for removable drives only", IDX_FOLDERS_WORK_FOR_REMOVABLE, m, 86, xc)
+  LTEXT "Location for temporary archive files", IDT_FOLDERS_WORKING_FOLDER, m, m, xc, 8
+  LTEXT "Used when creating or updating an archive. Choose the extraction destination in the extraction dialog.", IDT_FOLDERS_PURPOSE, m, 22, xc, 20
+
+  MY_CONTROL_AUTORADIOBUTTON_GROUP ( "&Windows temporary folder", IDR_FOLDERS_WORK_SYSTEM, m, 48, xc)
+  EDITTEXT IDE_FOLDERS_SYSTEM_PATH, m + m, 62, xc - m, 14, ES_AUTOHSCROLL | ES_READONLY
+  MY_CONTROL_AUTORADIOBUTTON ( "Same folder as the &archive", IDR_FOLDERS_WORK_CURRENT, m, 88, xc)
+  MY_CONTROL_AUTORADIOBUTTON ( "&Choose a folder:", IDR_FOLDERS_WORK_SPECIFIED, m, 108, xc)
+  EDITTEXT IDE_FOLDERS_WORK_PATH, m + m, 122, xc - m - m - bxsDots, 14, ES_AUTOHSCROLL
+  PUSHBUTTON "...", IDB_FOLDERS_WORK_PATH, xs - m - bxsDots, 121, bxsDots, bys
+
+  MY_CONTROL_CHECKBOX ( "Use this location only for archives on removable drives", IDX_FOLDERS_WORK_FOR_REMOVABLE, m, 152, xc)
+  LTEXT "When checked, only drives Windows identifies as removable or optical use this setting. Archives on other drives use the archive's own folder.", IDT_FOLDERS_REMOVABLE_HELP, m + m, 168, xc - m, 32
+  LTEXT "Temporary files are normally removed when the operation ends. An interrupted or failed operation may leave files for recovery.", IDT_FOLDERS_CLEANUP_HELP, m, 212, xc, 28
 END

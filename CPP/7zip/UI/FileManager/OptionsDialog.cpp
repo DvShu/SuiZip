@@ -63,6 +63,8 @@ void OptionsDialog(HWND hwndOwner, HINSTANCE /* hInstance */)
     page.Page = pagePointers[i];
     if (page.Page == &menuPage)
       page.Title = MY_PRODUCT_NAME;
+    if (page.Page == &foldersPage)
+      LangString(IDD_FOLDERS, page.Title);
   }
 
   const INT_PTR res = NControl::MyPropertySheet(pages, hwndOwner, LangString(IDS_OPTIONS));

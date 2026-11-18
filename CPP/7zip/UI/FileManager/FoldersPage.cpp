@@ -2,6 +2,8 @@
 
 #include "StdAfx.h"
 
+#include "../../../Windows/FileDir.h"
+
 #include "FoldersPageRes.h"
 #include "FoldersPage.h"
 
@@ -18,7 +20,10 @@ static const UInt32 kLangIDs[] =
   IDR_FOLDERS_WORK_SYSTEM,
   IDR_FOLDERS_WORK_CURRENT,
   IDR_FOLDERS_WORK_SPECIFIED,
-  IDX_FOLDERS_WORK_FOR_REMOVABLE
+  IDX_FOLDERS_WORK_FOR_REMOVABLE,
+  IDT_FOLDERS_PURPOSE,
+  IDT_FOLDERS_REMOVABLE_HELP,
+  IDT_FOLDERS_CLEANUP_HELP
 };
 #endif
 
@@ -53,6 +58,10 @@ bool CFoldersPage::OnInit()
   m_WorkPath.Init(*this, IDE_FOLDERS_WORK_PATH);
 
   m_WorkPath.SetText(fs2us(m_WorkDirInfo.Path));
+
+  FString systemTempPath;
+  if (NFile::NDir::MyGetTempPath(systemTempPath))
+    SetItemText(IDE_FOLDERS_SYSTEM_PATH, fs2us(systemTempPath));
 
   MyEnableControls();
   

@@ -11,6 +11,7 @@
 #include "../Explorer/resource.h"
 #include "../GUI/ExtractDialogRes.h"
 
+#include "FoldersPageRes.h"
 #include "LangUtils.h"
 #include "RegistryUtils.h"
 
@@ -45,6 +46,22 @@ static const wchar_t *FindLangString(UInt32 langID)
       return L"智能解压到当前位置";
     if (langID == IDX_SMART_EXTRACT)
       return L"智能解压";
+    switch (langID)
+    {
+      case IDD_FOLDERS: return L"临时文件";
+      case IDT_FOLDERS_WORKING_FOLDER: return L"压缩临时文件的存放位置";
+      case IDR_FOLDERS_WORK_SYSTEM: return L"Windows 临时文件夹(&W)";
+      case IDR_FOLDERS_WORK_CURRENT: return L"压缩包所在文件夹(&A)";
+      case IDR_FOLDERS_WORK_SPECIFIED: return L"指定文件夹(&C)：";
+      case IDX_FOLDERS_WORK_FOR_REMOVABLE: return L"仅对可移动磁盘上的压缩包使用此位置";
+      case IDS_FOLDERS_SET_WORK_PATH_TITLE: return L"选择压缩临时文件的存放位置";
+      case IDT_FOLDERS_PURPOSE:
+        return L"用于创建或更新压缩包。解压位置请在解压窗口中设置。";
+      case IDT_FOLDERS_REMOVABLE_HELP:
+        return L"勾选后，仅对 Windows 识别为可移动磁盘或光驱上的压缩包生效。\n其他压缩包的临时文件仍放在压缩包所在文件夹。";
+      case IDT_FOLDERS_CLEANUP_HELP:
+        return L"临时文件通常会在操作结束后自动清理。操作中断或失败时，可能保留文件以便恢复。";
+    }
   }
   return g_Lang.Get(langID);
 }
